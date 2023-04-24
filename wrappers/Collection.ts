@@ -55,12 +55,8 @@ export class Collection implements Contract {
       body: beginCell()
         .storeUint(1, 32)
         .storeUint(0, 64)
-        .storeRef(
-          beginCell()
-            .storeAddress(ownerAddress)
-            .storeRef(beginCell().endCell())
-            .endCell(),
-        )
+        .storeAddress(ownerAddress)
+        .storeRef(beginCell().endCell())
         .endCell(),
     });
   }

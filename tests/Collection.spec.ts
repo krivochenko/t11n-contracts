@@ -41,7 +41,9 @@ describe('Collection', () => {
   });
 
   it('should deploy item', async () => {
-    await collection.sendDeployNftItem(deployer.getSender(), deployer.address);
+    const r = await collection.sendDeployNftItem(deployer.getSender(), deployer.address);
+    // console.log(r);
+
 
     const [nextItemIndex, collectionContent, collectionOwnerAddress] = await collection.getCollectionData();
 
