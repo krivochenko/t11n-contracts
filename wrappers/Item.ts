@@ -11,13 +11,13 @@ import {
 } from 'ton-core';
 
 export type ItemConfig = {
-  index: number,
+  index: bigint,
   collectionAddress: Address,
 };
 
 export function itemConfigToCell(config: ItemConfig): Cell {
   return beginCell()
-    .storeUint(config.index, 64)
+    .storeUint(config.index, 256)
     .storeAddress(config.collectionAddress)
     .endCell();
 }

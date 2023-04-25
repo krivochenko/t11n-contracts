@@ -12,7 +12,6 @@ import {
 
 export type CollectionConfig = {
   ownerAddress: Address,
-  nextItemIndex: number,
   content: Cell,
   nftItemCode: Cell,
 };
@@ -20,7 +19,6 @@ export type CollectionConfig = {
 export function collectionConfigToCell(config: CollectionConfig): Cell {
   return beginCell()
     .storeAddress(config.ownerAddress)
-    .storeUint(config.nextItemIndex, 64)
     .storeRef(config.content)
     .storeRef(config.nftItemCode)
     .endCell();
@@ -64,5 +62,10 @@ export class Collection implements Contract {
   async getCollectionData(provider: ContractProvider): Promise<[bigint, Cell, Address]> {
     const result = await provider.get('get_collection_data', []);
     return [result.stack.readBigNumber(), result.stack.readCell(), result.stack.readAddress()];
+  }
+
+  async getNftIndexByOwnerAddress(provider: ContractProvider, owner: Address): Promise<bigint> {
+    const result = await provider.get('get_nft_index_by_owner_address', [{ type: 'slice', cell: beginCell().storeAddress(owner).endCell() }]);
+    return result.stack.readBigNumber();
   }
 }

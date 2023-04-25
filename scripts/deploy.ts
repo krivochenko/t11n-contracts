@@ -10,7 +10,6 @@ export async function run(provider: NetworkProvider) {
 
     const collection = provider.open(Collection.createFromConfig({
         ownerAddress: provider.sender().address!,
-        nextItemIndex: 0,
         content: buildOnChainMetadata(data),
         nftItemCode: itemCode,
     }, collectionCode));
@@ -20,6 +19,8 @@ export async function run(provider: NetworkProvider) {
 
     await collection.sendDeployNftItem(provider.sender(), provider.sender().address!);
 
-    const item = Item.createFromConfig({ index: 0, collectionAddress: collection.address }, itemCode);
+    const itemIndex = await collection.getNftIndexByOwnerAddress(provider.sender().address!);
+
+    const item = Item.createFromConfig({ index: itemIndex, collectionAddress: collection.address }, itemCode);
     await provider.waitForDeploy(item.address);
 }

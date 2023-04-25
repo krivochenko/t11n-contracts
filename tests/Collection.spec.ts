@@ -25,7 +25,6 @@ describe('Collection', () => {
 
     collection = blockchain.openContract(Collection.createFromConfig({
       ownerAddress: deployer.address,
-      nextItemIndex: 0,
       content: buildOnChainMetadata(data),
       nftItemCode: itemCode,
     }, collectionCode));
@@ -41,21 +40,21 @@ describe('Collection', () => {
   });
 
   it('should deploy item', async () => {
-    const r = await collection.sendDeployNftItem(deployer.getSender(), deployer.address);
-    // console.log(r);
-
+    await collection.sendDeployNftItem(deployer.getSender(), deployer.address);
 
     const [nextItemIndex, collectionContent, collectionOwnerAddress] = await collection.getCollectionData();
 
-    expect(nextItemIndex).toBe(1n);
+    expect(nextItemIndex).toBe(0n);
     expect(collectionContent).toEqualCell(buildOnChainMetadata(data));
     expect(collectionOwnerAddress).toEqualAddress(deployer.address);
 
-    const item = blockchain.openContract(Item.createFromConfig({ collectionAddress: collection.address, index: 0 }, itemCode));
+    const itemIndex = await collection.getNftIndexByOwnerAddress(deployer.address);
+
+    const item = blockchain.openContract(Item.createFromConfig({ collectionAddress: collection.address, index: itemIndex }, itemCode));
     const [init, index, collectionAddress, itemOwnerAddress, content] = await item.getNftData();
 
     expect(init).toBe(true);
-    expect(index).toBe(0n);
+    expect(index).toBe(itemIndex);
     expect(collectionAddress).toEqualAddress(collection.address);
     expect(itemOwnerAddress).toEqualAddress(deployer.address);
     expect(content).toEqualCell(beginCell().endCell());

@@ -6,32 +6,29 @@
 
 ;; storage scheme
 ;; storage#_ owner_address:MsgAddress
-;;           next_item_index:uint64
 ;;           content:^Cell
 ;;           nft_item_code:^Cell
 ;;           = Storage;
 
-(slice, int, cell, cell) load_data() inline {
+(slice, cell, cell) load_data() inline {
     var ds = get_data().begin_parse();
     return (
             ds~load_msg_addr(), ;; owner_address
-            ds~load_uint(64), ;; next_item_index
             ds~load_ref(), ;; content
             ds~load_ref() ;; nft_item_code
     );
 }
 
-() save_data(slice owner_address, int next_item_index, cell content, cell nft_item_code) impure inline {
+() save_data(slice owner_address, cell content, cell nft_item_code) impure inline {
     set_data(begin_cell()
             .store_slice(owner_address)
-            .store_uint(next_item_index, 64)
             .store_ref(content)
             .store_ref(nft_item_code)
             .end_cell());
 }
 
 cell calculate_nft_item_state_init(int item_index, cell nft_item_code) {
-    cell data = begin_cell().store_uint(item_index, 64).store_slice(my_address()).end_cell();
+    cell data = begin_cell().store_uint(item_index, 256).store_slice(my_address()).end_cell();
     return begin_cell().store_uint(0, 2).store_dict(nft_item_code).store_dict(data).store_uint(0, 1).end_cell();
 }
 
@@ -43,7 +40,7 @@ slice calculate_nft_item_address(int wc, cell state_init) {
             .begin_parse();
 }
 
-slice deploy_nft_item(int item_index, cell nft_item_code, cell nft_content) impure {
+() deploy_nft_item(int item_index, cell nft_item_code, cell nft_content) impure {
     cell state_init = calculate_nft_item_state_init(item_index, nft_item_code);
     slice nft_address = calculate_nft_item_address(workchain(), state_init);
 
@@ -55,8 +52,6 @@ slice deploy_nft_item(int item_index, cell nft_item_code, cell nft_content) impu
             .store_ref(state_init)
             .store_ref(nft_content);
     send_raw_message(msg.end_cell(), 1); ;; pay transfer fees separately, revert on errors
-
-    return nft_address;
 }
 
 () recv_internal(cell in_msg_full, slice in_msg_body) impure {
@@ -74,13 +69,14 @@ slice deploy_nft_item(int item_index, cell nft_item_code, cell nft_content) impu
     int op = in_msg_body~load_uint(32);
     int query_id = in_msg_body~load_uint(64);
 
-    var (owner_address, next_item_index, content, nft_item_code) = load_data();
+    var (owner_address, content, nft_item_code) = load_data();
 
     throw_unless(401, equal_slices(sender_address, owner_address));
 
     if (op == 1) { ;; deploy new nft
         slice item_owner_address = in_msg_body~load_msg_addr();
         cell item_content = in_msg_body~load_ref();
+        int item_index = slice_hash(item_owner_address);
 
         cell payload = begin_cell()
                 .store_uint(op::transfer(), 32)
@@ -93,9 +89,7 @@ slice deploy_nft_item(int item_index, cell nft_item_code, cell nft_content) impu
                 .store_ref(item_content)
                 .end_cell();
 
-        slice item_address = deploy_nft_item(next_item_index, nft_item_code, payload);
-        next_item_index += 1;
-        save_data(owner_address, next_item_index, content, nft_item_code);
+        deploy_nft_item(item_index, nft_item_code, payload);
 
         return ();
     }
@@ -105,17 +99,21 @@ slice deploy_nft_item(int item_index, cell nft_item_code, cell nft_content) impu
 ;; Get methods
 
 (int, cell, slice) get_collection_data() method_id {
-    var (owner_address, next_item_index, content, _) = load_data();
-    return (next_item_index, content, owner_address);
+    var (owner_address, content, _) = load_data();
+    return (0, content, owner_address);
+}
+
+int get_nft_index_by_owner_address(slice owner_address) method_id {
+    return slice_hash(owner_address);
 }
 
 slice get_nft_address_by_index(int index) method_id {
-    var (_, _, _, nft_item_code) = load_data();
+    var (_, _, nft_item_code) = load_data();
     cell state_init = calculate_nft_item_state_init(index, nft_item_code);
     return calculate_nft_item_address(workchain(), state_init);
 }
 
 cell get_nft_content(int index, cell individual_nft_content) method_id {
-    var (_, _, content, _) = load_data();
+    var (_, content, _) = load_data();
     return content;
 }
