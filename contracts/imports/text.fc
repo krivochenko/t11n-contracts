@@ -1,0 +1,80 @@
+forall X -> int is_null (X x) asm "ISNULL";
+forall X -> (tuple, ()) push_back (tuple tail, X head) asm "CONS";
+forall X -> (tuple, (X)) pop_back (tuple t) asm "UNCONS";
+(int) tlen (tuple t) asm "TLEN";
+
+tuple flat(tuple list, tuple result) {
+    slice current = list~pop_back();
+
+    if (current.slice_refs() > 0) {
+        tuple t = empty_tuple();
+        t~push_back(current~load_ref().begin_parse());
+        result = flat(t, result);
+    }
+
+    result~push_back(current.preload_bits(current.slice_bits()));
+
+    if (list.tlen() > 0) {
+        result = flat(list, result);
+    }
+
+    return result;
+}
+
+cell concat_flattened(tuple flattened, builder result) {
+    slice current = flattened~pop_back();
+
+    int result_free_space = 127 * 8 - result.builder_bits();
+    int current_data_space = current.slice_bits();
+
+    if (result_free_space < current_data_space) {
+        slice bits = current~load_bits(result_free_space);
+        result = result.store_slice(bits);
+        flattened~push_back(current);
+        return result.store_ref(concat_flattened(flattened, begin_cell())).end_cell();
+    }
+    result = result.store_slice(current);
+
+    if (flattened.tlen() > 0) {
+        return concat_flattened(flattened, result);
+    }
+
+    return result.end_cell();
+}
+
+cell concat_to_chunk(tuple sources) {
+    tuple flattened = flat(sources, empty_tuple());
+
+    cell chunks = new_dict();
+    int counter = 0;
+    builder current_chunk = begin_cell();
+
+    while (flattened.tlen() > 0) {
+        slice current = flattened~pop_back();
+        int result_free_space = 126 * 8 - current_chunk.builder_bits();
+        int current_data_space = current.slice_bits();
+
+        if (result_free_space < current_data_space) {
+            if (result_free_space > 0) {
+                slice bits = current~load_bits(result_free_space);
+                current_chunk = current_chunk.store_slice(bits);
+            }
+            chunks~udict_set_ref(32, counter, current_chunk.end_cell());
+            counter = counter + 1;
+            current_chunk = begin_cell();
+            flattened~push_back(current);
+        } else {
+            current_chunk = current_chunk.store_slice(current);
+        }
+    }
+    chunks~udict_set_ref(32, counter, current_chunk.end_cell());
+
+    return begin_cell().store_uint(1, 8).store_dict(chunks).end_cell();
+}
+
+cell concat_to_shake(tuple sources) {
+    tuple flattened = flat(sources, empty_tuple());
+    builder result = begin_cell();
+    result = result.store_uint(0, 8);
+    return concat_flattened(flattened, result);
+}

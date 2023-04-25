@@ -1,10 +1,15 @@
 import { Blockchain, SandboxContract, TreasuryContract } from '@ton-community/sandbox';
-import { beginCell, Cell, toNano } from 'ton-core';
-import { Collection } from '../wrappers/Collection';
+import { Cell, Dictionary, toNano } from 'ton-core';
+import { CircleConfig, Collection, generateItemContent } from '../wrappers/Collection';
 import '@ton-community/test-utils';
 import { compile } from '@ton-community/blueprint';
-import { buildOnChainMetadata, data } from '../helpers/metadata';
+import { buildOnChainMetadata, data, parseMetadata } from '../helpers/metadata';
 import { Item } from '../wrappers/Item';
+
+const circles: CircleConfig[] = [
+  { x: 60, y: 50, radius: 20 },
+  { x: 40, y: 50, radius: 20 },
+];
 
 describe('Collection', () => {
   let collectionCode: Cell;
@@ -26,6 +31,7 @@ describe('Collection', () => {
     collection = blockchain.openContract(Collection.createFromConfig({
       ownerAddress: deployer.address,
       content: buildOnChainMetadata(data),
+      circles,
       nftItemCode: itemCode,
     }, collectionCode));
 
@@ -40,7 +46,8 @@ describe('Collection', () => {
   });
 
   it('should deploy item', async () => {
-    await collection.sendDeployNftItem(deployer.getSender(), deployer.address);
+    const colors = ['ff0000', '00ff00'];
+    await collection.sendDeployNftItem(deployer.getSender(), deployer.address, colors);
 
     const [nextItemIndex, collectionContent, collectionOwnerAddress] = await collection.getCollectionData();
 
@@ -49,7 +56,6 @@ describe('Collection', () => {
     expect(collectionOwnerAddress).toEqualAddress(deployer.address);
 
     const itemIndex = await collection.getNftIndexByOwnerAddress(deployer.address);
-
     const item = blockchain.openContract(Item.createFromConfig({ collectionAddress: collection.address, index: itemIndex }, itemCode));
     const [init, index, collectionAddress, itemOwnerAddress, content] = await item.getNftData();
 
@@ -57,6 +63,11 @@ describe('Collection', () => {
     expect(index).toBe(itemIndex);
     expect(collectionAddress).toEqualAddress(collection.address);
     expect(itemOwnerAddress).toEqualAddress(deployer.address);
-    expect(content).toEqualCell(beginCell().endCell());
+    expect(content).toEqualCell(generateItemContent(colors));
+
+    const nftContent = await collection.getNftContent(index, content);
+    const metadataDict = nftContent.beginParse().skip(8).loadDict(Dictionary.Keys.Buffer(32), Dictionary.Values.Cell());
+    const parsedMetadata = parseMetadata(metadataDict, ['name', 'description', 'image_data']);
+    console.log(parsedMetadata);
   });
 });

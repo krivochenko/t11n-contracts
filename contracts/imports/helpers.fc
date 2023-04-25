@@ -24,3 +24,18 @@ int workchain() asm "0 PUSHINT";
 }
 
 int min_tons_for_storage() asm "50000000 PUSHINT"; ;; 0.05 TON
+
+slice int_to_slice(int n) {
+    builder string = begin_cell();
+    tuple chars = null();
+    do {
+        int r = n~divmod(10);
+        chars = cons(r + 48, chars);
+    } until (n == 0);
+    do {
+        int char = chars~list_next();
+        string~store_uint(char, 8);
+    } until (null?(chars));
+
+    return string.end_cell().begin_parse();
+}

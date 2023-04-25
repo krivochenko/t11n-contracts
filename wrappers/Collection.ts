@@ -5,21 +5,50 @@ import {
   Contract,
   contractAddress,
   ContractProvider,
+  Dictionary,
   Sender,
   SendMode,
   toNano
 } from 'ton-core';
 
+export type CircleConfig = {
+  x: number,
+  y: number,
+  radius: number,
+};
+
 export type CollectionConfig = {
   ownerAddress: Address,
   content: Cell,
+  circles: CircleConfig[],
   nftItemCode: Cell,
+};
+
+export const generateCirclesDict = (circles: CircleConfig[]) => {
+  const circlesDict = Dictionary.empty(Dictionary.Keys.Uint(256), Dictionary.Values.Cell())
+
+  for (let i = 0; i < circles.length; i++) {
+    const { x, y, radius } = circles[i];
+    const value = beginCell().storeUint(x, 32).storeUint(y, 32).storeUint(radius, 32).endCell();
+    circlesDict.set(i, value);
+  }
+
+  return circlesDict;
+}
+
+export const generateItemContent = (colors: string[]) => {
+  const content = beginCell();
+  for (const color of colors) {
+    content.storeStringTail(color);
+  }
+  return content.endCell();
 };
 
 export function collectionConfigToCell(config: CollectionConfig): Cell {
   return beginCell()
     .storeAddress(config.ownerAddress)
     .storeRef(config.content)
+    .storeRef(beginCell().storeDictDirect(generateCirclesDict(config.circles)).endCell())
     .storeRef(config.nftItemCode)
     .endCell();
 }
@@ -46,7 +75,7 @@ export class Collection implements Contract {
     });
   }
 
-  async sendDeployNftItem(provider: ContractProvider, via: Sender, ownerAddress: Address) {
+  async sendDeployNftItem(provider: ContractProvider, via: Sender, ownerAddress: Address, colors: string[]) {
     await provider.internal(via, {
       value: toNano('0.5'),
       sendMode: SendMode.PAY_GAS_SEPARATELY,
@@ -54,7 +83,7 @@ export class Collection implements Contract {
         .storeUint(1, 32)
         .storeUint(0, 64)
         .storeAddress(ownerAddress)
-        .storeRef(beginCell().endCell())
+        .storeRef(generateItemContent(colors))
         .endCell(),
     });
   }
@@ -67,5 +96,10 @@ export class Collection implements Contract {
   async getNftIndexByOwnerAddress(provider: ContractProvider, owner: Address): Promise<bigint> {
     const result = await provider.get('get_nft_index_by_owner_address', [{ type: 'slice', cell: beginCell().storeAddress(owner).endCell() }]);
     return result.stack.readBigNumber();
+  }
+
+  async getNftContent(provider: ContractProvider, index: bigint, individualContent: Cell): Promise<Cell> {
+    const result = await provider.get('get_nft_content', [{ type: 'int', value: index }, { type: 'cell', cell: individualContent }]);
+    return result.stack.readCell();
   }
 }
