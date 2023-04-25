@@ -56,7 +56,10 @@ describe('Collection', () => {
     expect(collectionOwnerAddress).toEqualAddress(deployer.address);
 
     const itemIndex = await collection.getNftIndexByOwnerAddress(deployer.address);
-    const item = blockchain.openContract(Item.createFromConfig({ collectionAddress: collection.address, index: itemIndex }, itemCode));
+    const item = blockchain.openContract(Item.createFromConfig({
+      collectionAddress: collection.address,
+      index: itemIndex
+    }, itemCode));
     const [init, index, collectionAddress, itemOwnerAddress, content] = await item.getNftData();
 
     expect(init).toBe(true);
@@ -68,6 +71,24 @@ describe('Collection', () => {
     const nftContent = await collection.getNftContent(index, content);
     const metadataDict = nftContent.beginParse().skip(8).loadDict(Dictionary.Keys.Buffer(32), Dictionary.Values.Cell());
     const parsedMetadata = parseMetadata(metadataDict, ['name', 'description', 'image_data']);
-    console.log(parsedMetadata);
+    expect(parsedMetadata).toEqual({
+      name: 'Name',
+      description: 'Description',
+      image_data: '<svg viewBox=\'0 0 100 100\' xmlns=\'http://www.w3.org/2000/svg\'><circle fill=\'#ff0000\' cx=\'60\' cy=\'50\' r=\'20\' /><circle fill=\'#00ff00\' cx=\'40\' cy=\'50\' r=\'20\' /></svg>'
+    });
+
+    const newColors = ['ff0000', '00ff00'];
+    await item.sendEditContent(deployer.getSender(), newColors);
+    const [, , , , newContent] = await item.getNftData();
+
+    expect(newContent).toEqualCell(generateItemContent(newColors));
+    const newNftContent = await collection.getNftContent(index, newContent);
+    const newMetadataDict = newNftContent.beginParse().skip(8).loadDict(Dictionary.Keys.Buffer(32), Dictionary.Values.Cell());
+    const newParsedMetadata = parseMetadata(newMetadataDict, ['name', 'description', 'image_data']);
+    expect(newParsedMetadata).toEqual({
+      name: 'Name',
+      description: 'Description',
+      image_data: '<svg viewBox=\'0 0 100 100\' xmlns=\'http://www.w3.org/2000/svg\'><circle fill=\'#ff0000\' cx=\'60\' cy=\'50\' r=\'20\' /><circle fill=\'#00ff00\' cx=\'40\' cy=\'50\' r=\'20\' /></svg>'
+    });
   });
 });

@@ -60,6 +60,12 @@
         store_data(index, collection_address, new_owner_address, new_content);
         return ();
     }
+    if (op == op::edit_content()) {
+        throw_unless(405, equal_slices(owner_address, sender_address));
+
+        store_data(index, collection_address, owner_address, in_msg_body~load_ref());
+        return ();
+    }
 
     throw(0xffff);
 }

@@ -1,4 +1,3 @@
-import { toNano } from 'ton-core';
 import { Collection } from '../wrappers/Collection';
 import { compile, NetworkProvider } from '@ton-community/blueprint';
 import { buildOnChainMetadata, data } from '../helpers/metadata';
@@ -17,11 +16,8 @@ export async function run(provider: NetworkProvider) {
     ],
     nftItemCode: itemCode,
   }, collectionCode));
-  await collection.sendDeploy(provider.sender(), toNano('0.1'));
-  await provider.waitForDeploy(collection.address);
 
-  await collection.sendDeployNftItem(provider.sender(), provider.sender().address!, ['ffffff', '000000']);
   const itemIndex = await collection.getNftIndexByOwnerAddress(provider.sender().address!);
-  const item = Item.createFromConfig({ index: itemIndex, collectionAddress: collection.address }, itemCode);
-  await provider.waitForDeploy(item.address);
+  const item = provider.open(Item.createFromConfig({ index: itemIndex, collectionAddress: collection.address }, itemCode));
+  await item.sendEditContent(provider.sender(), ['ff0000', '00ff00']);
 }

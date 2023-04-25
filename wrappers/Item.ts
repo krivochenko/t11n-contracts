@@ -9,6 +9,7 @@ import {
   SendMode,
   toNano
 } from 'ton-core';
+import { generateItemContent } from './Collection';
 
 export type ItemConfig = {
   index: bigint,
@@ -36,26 +37,17 @@ export class Item implements Contract {
     return new Item(contractAddress(workchain, init), init);
   }
 
-  async sendTransfer(provider: ContractProvider, via: Sender, value: bigint) {
+  async sendEditContent(provider: ContractProvider, via: Sender, colors: string[]) {
     await provider.internal(via, {
-      value,
+      value: toNano('0.1'),
       sendMode: SendMode.PAY_GAS_SEPARATELY,
       body: beginCell()
-        .storeUint(0x5fcc3d14, 32)
+        .storeUint(0x1a0b9d51, 32)
         .storeUint(0, 64)
-
-        .storeAddress(via.address)
-        .storeUint(0x00, 2)
-        .storeMaybeRef()
-        .storeCoins(toNano('0.001'))
-        .storeUint(0, 32)
-        .storeStringTail('nft')
-
+        .storeRef(generateItemContent(colors))
         .endCell(),
-    })
-
+    });
   }
-
 
   async getNftData(provider: ContractProvider): Promise<[boolean, bigint, Address, Address, Cell]> {
     const result = await provider.get('get_nft_data', []);
