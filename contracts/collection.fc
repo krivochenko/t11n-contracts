@@ -126,15 +126,9 @@ cell get_nft_content(int index, cell individual_nft_content) method_id {
 
     (int key, slice val, int flag) = circles_dict.udict_get_min?(256);
     while (flag) {
-        ~dump(key);
         cell value_cell = val~load_ref();
         slice value = value_cell.begin_parse();
         var (x, y, r) = (value~load_uint(32), value~load_uint(32), value~load_uint(32));
-
-        ~dump(x);
-        ~dump(y);
-        ~dump(r);
-
         slice color = individual_nft_content_slice~load_bits(48);
 
         parts~push_back("<circle fill='#");
