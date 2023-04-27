@@ -73,7 +73,7 @@ global cell storage::content;
         storage::content = item_data~load_ref();
         init? = -1;
 
-        send_msg(storage::owner_address, 100, op::ownership_assigned(), query_id, begin_cell().store_slice(storage::authority_address), 1);
+        send_message(storage::owner_address, 100, op::ownership_assigned(), query_id, begin_cell().store_slice(storage::authority_address), 1);
 
         store_data();
         return ();

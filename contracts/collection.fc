@@ -1,8 +1,8 @@
 #include "imports/stdlib.fc";
 #include "imports/op-codes.fc";
 #include "imports/helpers.fc";
-#include "imports/helpers::item.fc";
 #include "imports/text.fc";
+#include "imports/state-init.fc";
 
 global slice storage::authority_address;
 global cell storage::content;
@@ -46,7 +46,7 @@ global cell storage::item_code;
 
     if (op == op::collection::deploy) {
         raw_reserve(min_tons_for_storage(), 0);
-        send_msg(storage::authority_address, 0, op::authority::release_collection, query_id, begin_cell().store_slice(my_address()), 128);
+        send_message(storage::authority_address, 0, op::authority::release_collection, query_id, begin_cell().store_slice(my_address()), 128);
 
         return ();
     }
@@ -62,8 +62,8 @@ global cell storage::item_code;
 
 slice get_nft_address_by_index(int index) method_id {
     load_data();
-    cell state_init = item::get_state_init(storage::item_code, index, storage::authority_address);
-    return item::get_address(workchain(), state_init);
+    cell state_init = get_item_state_init(storage::item_code, index, storage::authority_address);
+    return calculate_address(state_init);
 }
 
 cell get_nft_content(int index, cell individual_nft_content) method_id {
@@ -79,7 +79,7 @@ cell get_nft_content(int index, cell individual_nft_content) method_id {
         cell value_cell = val~load_ref();
         slice value = value_cell.begin_parse();
         var (x, y, r) = (value~load_uint(12), value~load_uint(12), value~load_uint(12));
-        slice color = individual_nft_content_slice~load_int(1) == true ? "000000" : "ffffff";
+        slice color = individual_nft_content_slice~load_int(1) == true ? "ff0000" : "00ff00";
 
         parts~push_back("<circle fill='#");
         parts~push_back(color);

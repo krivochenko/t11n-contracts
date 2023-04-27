@@ -1,45 +1,12 @@
 #include "stdlib.fc";
 
+int min_tons_for_storage() asm "50000000 PUSHINT";
 int workchain() asm "0 PUSHINT";
-
 slice null_addr() asm "b{00} PUSHSLICE";
 
 () force_chain(slice addr) impure {
     (int wc, _) = parse_std_addr(addr);
     throw_unless(333, wc == workchain());
-}
-
-() send_msg(slice to_address, int amount, int op, int query_id, builder payload, int send_mode) impure inline {
-    var msg = begin_cell()
-            .store_uint(0x10, 6) ;; nobounce - int_msg_info$0 ihr_disabled:Bool bounce:Bool bounced:Bool src:MsgAddress -> 010000
-            .store_slice(to_address)
-            .store_coins(amount)
-            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
-            .store_uint(op, 32)
-            .store_uint(query_id, 64);
-
-    if (~ builder_null?(payload)) {
-        msg = msg.store_builder(payload);
-    }
-
-    send_raw_message(msg.end_cell(), send_mode);
-}
-
-int min_tons_for_storage() asm "50000000 PUSHINT"; ;; 0.05 TON
-
-slice int_to_slice(int n) {
-    builder string = begin_cell();
-    tuple chars = null();
-    do {
-        int r = n~divmod(10);
-        chars = cons(r + 48, chars);
-    } until (n == 0);
-    do {
-        int char = chars~list_next();
-        string~store_uint(char, 8);
-    } until (null?(chars));
-
-    return string.end_cell().begin_parse();
 }
 
 cell calculate_state_init(cell code, cell data) {
@@ -60,6 +27,22 @@ slice calculate_address(cell state_init) {
             .begin_parse();
 }
 
+() send_message(slice to_address, int amount, int op, int query_id, builder msg_body, int send_mode) impure inline {
+    var msg = begin_cell()
+            .store_uint(0x10, 6)
+            .store_slice(to_address)
+            .store_coins(amount)
+            .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)
+            .store_uint(op, 32)
+            .store_uint(query_id, 64);
+
+    if (~ builder_null?(msg_body)) {
+        msg = msg.store_builder(msg_body);
+    }
+
+    send_raw_message(msg.end_cell(), send_mode);
+}
+
 slice send_deploy_message(cell state_init, int amount, cell msg_body, int mode) impure inline {
     slice address = calculate_address(state_init);
     cell msg = begin_cell()
@@ -73,6 +56,21 @@ slice send_deploy_message(cell state_init, int amount, cell msg_body, int mode) 
 
     send_raw_message(msg, mode);
     return address;
+}
+
+slice int_to_slice(int n) {
+    builder string = begin_cell();
+    tuple chars = null();
+    do {
+        int r = n~divmod(10);
+        chars = cons(r + 48, chars);
+    } until (n == 0);
+    do {
+        int char = chars~list_next();
+        string~store_uint(char, 8);
+    } until (null?(chars));
+
+    return string.end_cell().begin_parse();
 }
 
 int get_dict_size(cell dict, int key_size) {

@@ -1,0 +1,9 @@
+cell get_collection_state_init(cell code, slice authority_address, cell content, cell map, cell item_code) {
+    cell data = begin_cell().store_slice(authority_address).store_ref(content).store_ref(map).store_ref(item_code).end_cell();
+    return calculate_state_init(code, data);
+}
+
+cell get_item_state_init(cell code, int index, slice authoritry_address) {
+    cell data = begin_cell().store_uint(index, 256).store_slice(authoritry_address).end_cell();
+    return calculate_state_init(code, data);
+}

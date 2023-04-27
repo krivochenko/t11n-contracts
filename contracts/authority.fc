@@ -1,9 +1,7 @@
 #include "imports/stdlib.fc";
 #include "imports/op-codes.fc";
 #include "imports/helpers.fc";
-#include "imports/helpers::authority.fc";
-#include "imports/helpers::collection.fc";
-#include "imports/helpers::item.fc";
+#include "imports/state-init.fc";
 
 global slice storage::owner_address;
 global cell storage::collection_code;
@@ -63,17 +61,13 @@ global cell storage::latest_collection;
     if (op == op::authority::deploy_collection) {
         throw_unless(401, equal_slices(storage::owner_address, sender_address));
         cell collection_content = in_msg_body~load_ref();
-        cell countries = in_msg_body~load_ref();
+        cell map = in_msg_body~load_ref();
 
-        cell collection_state_init = collection::get_state_init(storage::collection_code, my_address(), collection_content, countries, storage::item_code);
-        slice collection_address = calculate_address(collection_state_init);
+        cell collection_state_init = get_collection_state_init(storage::collection_code, my_address(), collection_content, map, storage::item_code);
+        cell msg_body = begin_cell().store_uint(op::collection::deploy, 32).store_uint(query_id, 64).end_cell();
+        slice collection_address = send_deploy_message(collection_state_init, 500000000, msg_body, 1);
 
-        storage::candidate_collection = begin_cell()
-                .store_slice(collection_address)
-                .store_uint(get_dict_size(countries, 10), 10)
-                .end_cell();
-
-        collection::send_deploy(query_id, collection_state_init);
+        storage::candidate_collection = begin_cell().store_slice(collection_address).store_uint(get_dict_size(map, 10), 10).end_cell();
 
         save_data();
         return ();
@@ -90,19 +84,19 @@ global cell storage::latest_collection;
     }
     if (op == op::authority::deploy_item) {
         slice item_owner_address = in_msg_body~load_msg_addr();
-        cell item_flags = in_msg_body~load_ref();
+        cell item_content = in_msg_body~load_ref();
 
         int item_index = slice_hash(item_owner_address);
-        cell item_state_init = item::get_state_init(storage::item_code, item_index, my_address());
-        slice item_address = item::get_address(workchain(), item_state_init);
+        cell item_state_init = get_item_state_init(storage::item_code, item_index, my_address());
+        slice item_address = calculate_address(item_state_init);
 
         cell item_data = begin_cell()
                 .store_slice(item_owner_address)
                 .store_ref(storage::latest_collection)
-                .store_ref(item_flags)
+                .store_ref(item_content)
                 .end_cell();
 
-        cell payload = begin_cell()
+        cell msg_body = begin_cell()
                 .store_uint(op::transfer(), 32)
                 .store_uint(query_id, 64)
                 .store_slice(item_owner_address)
@@ -113,27 +107,20 @@ global cell storage::latest_collection;
                 .store_ref(item_data)
                 .end_cell();
 
-        var msg = begin_cell()
-                .store_uint(0x18, 6)
-                .store_slice(item_address)
-                .store_coins(100000000)
-                .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
-                .store_ref(item_state_init)
-                .store_ref(payload);
-        send_raw_message(msg.end_cell(), 1);
+        send_deploy_message(item_state_init, 100000000, msg_body, 1);
 
         return ();
     }
     if (op == op::authority::upgrade_item) {
         int item_index = slice_hash(sender_address);
-        cell item_state_init = item::get_state_init(storage::item_code, item_index, my_address());
-        slice item_address = item::get_address(workchain(), item_state_init);
+        cell item_state_init = get_item_state_init(storage::item_code, item_index, my_address());
+        slice item_address = calculate_address(item_state_init);
 
         builder msg_body = begin_cell()
                 .store_ref(in_msg_body~load_ref())
                 .store_ref(storage::latest_collection);
 
-        send_msg(item_address, 50000000, op::edit_content(), query_id, msg_body, 128);
+        send_message(item_address, 50000000, op::edit_content(), query_id, msg_body, 128);
 
         return ();
     }

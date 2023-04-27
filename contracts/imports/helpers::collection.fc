@@ -1,9 +1,0 @@
-cell collection::get_state_init(cell code, slice authority_address, cell content, cell circles, cell item_code) {
-    cell data = begin_cell().store_slice(authority_address).store_ref(content).store_ref(circles).store_ref(item_code).end_cell();
-    return calculate_state_init(code, data);
-}
-
-() collection::send_deploy(int query_id, cell state_init) impure {
-    cell msg_body = begin_cell().store_uint(op::collection::deploy, 32).store_uint(query_id, 64).end_cell();
-    send_deploy_message(state_init, 500000000, msg_body, 1);
-}
