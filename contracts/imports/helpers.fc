@@ -2,6 +2,8 @@
 
 int workchain() asm "0 PUSHINT";
 
+slice null_addr() asm "b{00} PUSHSLICE";
+
 () force_chain(slice addr) impure {
     (int wc, _) = parse_std_addr(addr);
     throw_unless(333, wc == workchain());
@@ -38,4 +40,49 @@ slice int_to_slice(int n) {
     } until (null?(chars));
 
     return string.end_cell().begin_parse();
+}
+
+cell calculate_state_init(cell code, cell data) {
+    return begin_cell()
+            .store_uint(0, 2)
+            .store_dict(code)
+            .store_dict(data)
+            .store_uint(0, 1)
+            .end_cell();
+}
+
+slice calculate_address(cell state_init) {
+    return begin_cell()
+            .store_uint(4, 3)
+            .store_int(workchain(), 8)
+            .store_uint(cell_hash(state_init), 256)
+            .end_cell()
+            .begin_parse();
+}
+
+slice send_deploy_message(cell state_init, int amount, cell msg_body, int mode) impure inline {
+    slice address = calculate_address(state_init);
+    cell msg = begin_cell()
+            .store_uint(0x18, 6)
+            .store_slice(address)
+            .store_coins(amount)
+            .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
+            .store_ref(state_init)
+            .store_ref(msg_body)
+            .end_cell();
+
+    send_raw_message(msg, mode);
+    return address;
+}
+
+int get_dict_size(cell dict, int key_size) {
+    int size = 0;
+
+    (int key, slice value, int flag) = dict.udict_get_min?(key_size);
+    while (flag) {
+        size = size + 1;
+        (key, value, flag) = dict.udict_get_next?(key_size, key);
+    }
+
+    return size;
 }

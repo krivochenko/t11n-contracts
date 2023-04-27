@@ -1,0 +1,11 @@
+int authority::get_countries_count(cell map) {
+    int countries_count = 0;
+
+    (int country_key, slice country, int country_flag) = map.udict_get_min?(256);
+    while (country_flag) {
+        countries_count = countries_count + 1;
+        (country_key, country, country_flag) = map.udict_get_next?(256, country_key);
+    }
+
+    return countries_count;
+}

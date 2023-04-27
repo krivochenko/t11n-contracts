@@ -10,3 +10,14 @@ int op::report_royalty_params() asm "0xa8cb00ad PUSHINT";
 int op::edit_content() asm "0x1a0b9d51 PUSHINT";
 int op::transfer_editorship() asm "0x1c04412a PUSHINT";
 int op::editorship_assigned() asm "0x511a4463 PUSHINT";
+
+
+const op::collection::deploy = "op::collection::deploy"c;
+
+const op::authority::deploy_collection = "op::authority::deploy_collection"c;
+const op::authority::release_collection = "op::authority::release_collection"c;
+const op::authority::deploy_item = "op::authority::deploy_item"c;
+const op::authority::upgrade_item = "op::authority::upgrade_item"c;
+
+
+

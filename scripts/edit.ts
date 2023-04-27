@@ -1,23 +1,20 @@
 import { Collection } from '../wrappers/Collection';
 import { compile, NetworkProvider } from '@ton-community/blueprint';
-import { buildOnChainMetadata, data } from '../helpers/metadata';
 import { Item } from '../wrappers/Item';
+import { Authority } from '../wrappers/Authority';
 
 export async function run(provider: NetworkProvider) {
+  const authorityCode = await compile('Authority');
   const collectionCode = await compile('Collection');
   const itemCode = await compile('Item');
 
-  const collection = provider.open(Collection.createFromConfig({
+  const authority = provider.open(Authority.createFromConfig({
     ownerAddress: provider.sender().address!,
-    content: buildOnChainMetadata(data),
-    circles: [
-      { x: 60, y: 50, radius: 20 },
-      { x: 40, y: 50, radius: 20 },
-    ],
-    nftItemCode: itemCode,
-  }, collectionCode));
+    collectionCode,
+    itemCode,
+  }, authorityCode));
 
-  const itemIndex = await collection.getNftIndexByOwnerAddress(provider.sender().address!);
-  const item = provider.open(Item.createFromConfig({ index: itemIndex, collectionAddress: collection.address }, itemCode));
-  await item.sendEditContent(provider.sender(), ['ff0000', '00ff00']);
+  const itemIndex = await authority.getNftIndexByOwnerAddress(provider.sender().address!);
+  const item = provider.open(Item.createFromConfig({ index: itemIndex, authorityAddress: authority.address }, itemCode));
+  await item.sendEditContent(provider.sender(), [false, true]);
 }

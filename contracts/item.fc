@@ -2,41 +2,55 @@
 #include "imports/op-codes.fc";
 #include "imports/helpers.fc";
 
-;;
-;;  Storage
-;;
-;;  uint64 index
-;;  MsgAddressInt collection_address
-;;  MsgAddressInt owner_address
-;;  cell content
-;;
+global int init?;
 
-(int, int, slice, slice, cell) load_data() {
+global int storage::index;
+global slice storage::authority_address;
+global slice storage::collection_address;
+global slice storage::owner_address;
+global int storage::countries_count;
+global cell storage::content;
+
+() load_data() impure {
     slice ds = get_data().begin_parse();
-    var (index, collection_address) = (ds~load_uint(256), ds~load_msg_addr());
+
+    storage::index = ds~load_uint(256);
+    storage::authority_address = ds~load_msg_addr();
+
     if (ds.slice_bits() > 0) {
-        return (-1, index, collection_address, ds~load_msg_addr(), ds~load_ref());
+        init? = -1;
+        storage::owner_address = ds~load_msg_addr();
+
+        slice collection_data = ds~load_ref().begin_parse();
+        storage::collection_address = collection_data~load_msg_addr();
+        storage::countries_count = collection_data~load_uint(64);
+
+        storage::content = ds~load_ref();
     } else {
-        return (0, index, collection_address, null(), null()); ;; nft not initialized yet
+        init? = 0;
+        storage::owner_address = null_addr();
+        storage::collection_address = null_addr();
+        storage::countries_count = 0;
+        storage::content = null();
     }
 }
 
-() store_data(int index, slice collection_address, slice owner_address, cell content) impure {
-    set_data(
-            begin_cell()
-                    .store_uint(index, 256)
-                    .store_slice(collection_address)
-                    .store_slice(owner_address)
-                    .store_ref(content)
-                    .end_cell()
-    );
+() store_data() impure {
+    builder b = begin_cell();
+    b = b.store_uint(storage::index, 256);
+    b = b.store_slice(storage::authority_address);
+    if (init?) {
+        b = b.store_slice(storage::owner_address);
+        b = b.store_ref(begin_cell().store_slice(storage::collection_address).store_uint(storage::countries_count, 64).end_cell());
+        b = b.store_ref(storage::content);
+    }
+    set_data(b.end_cell());
 }
 
 () recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
     if (in_msg_body.slice_empty?()) {
         return ();
     }
-
     slice cs = in_msg_full.begin_parse();
     int flags = cs~load_uint(4);
 
@@ -44,26 +58,39 @@
         return ();
     }
     slice sender_address = cs~load_msg_addr();
-
     int op = in_msg_body~load_uint(32);
     int query_id = in_msg_body~load_uint(64);
 
-    (int init?, int index, slice collection_address, slice owner_address, cell content) = load_data();
+    load_data();
 
     if (~ init? & op == op::transfer()) {
-        throw_unless(405, equal_slices(collection_address, sender_address));
-        slice new_owner_address = in_msg_body~load_msg_addr();
-        cell new_content = in_msg_body~load_ref();
+        throw_unless(405, equal_slices(storage::authority_address, sender_address));
 
-        send_msg(new_owner_address, 100, op::ownership_assigned(), query_id, begin_cell().store_slice(collection_address), 1);
+        in_msg_body~load_msg_addr();
+        in_msg_body~load_uint(2);
+        in_msg_body~load_int(1);
+        in_msg_body~load_coins();
+        in_msg_body~load_uint(32);
 
-        store_data(index, collection_address, new_owner_address, new_content);
+        slice item_data = in_msg_body~load_ref().begin_parse();
+
+        storage::collection_address = item_data~load_msg_addr();
+        storage::countries_count = item_data~load_uint(64);
+        storage::owner_address = item_data~load_msg_addr();
+        storage::content = item_data~load_ref();
+        init? = -1;
+
+        send_msg(storage::owner_address, 100, op::ownership_assigned(), query_id, begin_cell().store_slice(storage::authority_address), 1);
+
+        store_data();
         return ();
     }
     if (op == op::edit_content()) {
-        throw_unless(405, equal_slices(owner_address, sender_address));
+        throw_unless(405, equal_slices(storage::owner_address, sender_address));
 
-        store_data(index, collection_address, owner_address, in_msg_body~load_ref());
+        storage::content = in_msg_body~load_ref();
+
+        store_data();
         return ();
     }
 
@@ -75,6 +102,6 @@
 ;;
 
 (int, int, slice, slice, cell) get_nft_data() method_id {
-    (int init?, int index, slice collection_address, slice owner_address, cell content) = load_data();
-    return (init?, index, collection_address, owner_address, content);
+    load_data();
+    return (init?, storage::index, storage::collection_address, storage::owner_address, storage::content);
 }

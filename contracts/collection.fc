@@ -1,99 +1,52 @@
 #include "imports/stdlib.fc";
 #include "imports/op-codes.fc";
 #include "imports/helpers.fc";
+#include "imports/helpers::item.fc";
 #include "imports/text.fc";
 
-;; NFT collection smart contract
+global slice storage::authority_address;
+global cell storage::content;
+global cell storage::map;
+global cell storage::item_code;
 
-;; storage scheme
-;; storage#_ owner_address:MsgAddress
-;;           content:^Cell
-;;           circles:^Cell
-;;           nft_item_code:^Cell
-;;           = Storage;
-
-(slice, cell, cell, cell) load_data() inline {
+() load_data() impure inline {
     var ds = get_data().begin_parse();
-    return (
-            ds~load_msg_addr(), ;; owner_address
-            ds~load_ref(), ;; content
-            ds~load_ref(), ;; circles
-            ds~load_ref() ;; nft_item_code
-    );
+    storage::authority_address = ds~load_msg_addr();
+    storage::content = ds~load_ref();
+    storage::map = ds~load_ref();
+    storage::item_code = ds~load_ref();
+    return ();
 }
 
-() save_data(slice owner_address, cell content, cell circles, cell nft_item_code) impure inline {
+() save_data() impure inline {
     set_data(begin_cell()
-            .store_slice(owner_address)
-            .store_ref(content)
-            .store_ref(circles)
-            .store_ref(nft_item_code)
+            .store_slice(storage::authority_address)
+            .store_ref(storage::content)
+            .store_ref(storage::map)
+            .store_ref(storage::item_code)
             .end_cell());
 }
 
-cell calculate_nft_item_state_init(int item_index, cell nft_item_code) {
-    cell data = begin_cell().store_uint(item_index, 256).store_slice(my_address()).end_cell();
-    return begin_cell().store_uint(0, 2).store_dict(nft_item_code).store_dict(data).store_uint(0, 1).end_cell();
-}
-
-slice calculate_nft_item_address(int wc, cell state_init) {
-    return begin_cell().store_uint(4, 3)
-            .store_int(wc, 8)
-            .store_uint(cell_hash(state_init), 256)
-            .end_cell()
-            .begin_parse();
-}
-
-() deploy_nft_item(int item_index, cell nft_item_code, cell nft_content) impure {
-    cell state_init = calculate_nft_item_state_init(item_index, nft_item_code);
-    slice nft_address = calculate_nft_item_address(workchain(), state_init);
-
-    var msg = begin_cell()
-            .store_uint(0x18, 6)
-            .store_slice(nft_address)
-            .store_coins(100000000)
-            .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
-            .store_ref(state_init)
-            .store_ref(nft_content);
-    send_raw_message(msg.end_cell(), 1); ;; pay transfer fees separately, revert on errors
-}
-
 () recv_internal(cell in_msg_full, slice in_msg_body) impure {
-    if (in_msg_body.slice_empty?()) { ;; ignore empty messages
+    if (in_msg_body.slice_empty?()) {
         return ();
     }
     slice cs = in_msg_full.begin_parse();
     int flags = cs~load_uint(4);
-
-    if (flags & 1) { ;; ignore all bounced messages
+    if (flags & 1) {
         return ();
     }
     slice sender_address = cs~load_msg_addr();
-
     int op = in_msg_body~load_uint(32);
     int query_id = in_msg_body~load_uint(64);
 
-    var (owner_address, content, circles, nft_item_code) = load_data();
+    load_data();
 
-    throw_unless(401, equal_slices(sender_address, owner_address));
+    throw_unless(401, equal_slices(sender_address, storage::authority_address));
 
-    if (op == 1) { ;; deploy new nft
-        slice item_owner_address = in_msg_body~load_msg_addr();
-        cell item_content = in_msg_body~load_ref();
-        int item_index = slice_hash(item_owner_address);
-
-        cell payload = begin_cell()
-                .store_uint(op::transfer(), 32)
-                .store_uint(query_id, 64)
-                .store_slice(item_owner_address)
-                .store_uint(0, 2)
-                .store_int(0, 1)
-                .store_coins(100)
-                .store_uint(0, 32)
-                .store_ref(item_content)
-                .end_cell();
-
-        deploy_nft_item(item_index, nft_item_code, payload);
+    if (op == op::collection::deploy) {
+        raw_reserve(min_tons_for_storage(), 0);
+        send_msg(storage::authority_address, 0, op::authority::release_collection, query_id, begin_cell().store_slice(my_address()), 128);
 
         return ();
     }
@@ -103,33 +56,29 @@ slice calculate_nft_item_address(int wc, cell state_init) {
 ;; Get methods
 
 (int, cell, slice) get_collection_data() method_id {
-    var (owner_address, content, _, _) = load_data();
-    return (0, content, owner_address);
-}
-
-int get_nft_index_by_owner_address(slice owner_address) method_id {
-    return slice_hash(owner_address);
+    load_data();
+    return (0, storage::content, storage::authority_address);
 }
 
 slice get_nft_address_by_index(int index) method_id {
-    var (_, _, _, nft_item_code) = load_data();
-    cell state_init = calculate_nft_item_state_init(index, nft_item_code);
-    return calculate_nft_item_address(workchain(), state_init);
+    load_data();
+    cell state_init = item::get_state_init(storage::item_code, index, storage::authority_address);
+    return item::get_address(workchain(), state_init);
 }
 
 cell get_nft_content(int index, cell individual_nft_content) method_id {
-    var (_, _, circles_dict, _) = load_data();
+    load_data();
     slice individual_nft_content_slice = individual_nft_content.begin_parse();
 
     tuple parts = empty_tuple();
     parts~push_back("<svg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'>");
 
-    (int key, slice val, int flag) = circles_dict.udict_get_min?(256);
+    (int key, slice val, int flag) = storage::map.udict_get_min?(256);
     while (flag) {
         cell value_cell = val~load_ref();
         slice value = value_cell.begin_parse();
         var (x, y, r) = (value~load_uint(32), value~load_uint(32), value~load_uint(32));
-        slice color = individual_nft_content_slice~load_bits(48);
+        slice color = individual_nft_content_slice~load_int(1) == true ? "000000" : "ffffff";
 
         parts~push_back("<circle fill='#");
         parts~push_back(color);
@@ -141,7 +90,7 @@ cell get_nft_content(int index, cell individual_nft_content) method_id {
         parts~push_back(int_to_slice(r));
         parts~push_back("' />");
 
-        (key, val, flag) = circles_dict.udict_get_next?(256, key);
+        (key, val, flag) = storage::map.udict_get_next?(256, key);
     }
 
     parts~push_back("</svg>");

@@ -1,15 +1,4 @@
-import {
-  Address,
-  beginCell,
-  Cell,
-  Contract,
-  contractAddress,
-  ContractProvider,
-  Dictionary,
-  Sender,
-  SendMode,
-  toNano
-} from 'ton-core';
+import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, Dictionary } from 'ton-core';
 
 export type CircleConfig = {
   x: number,
@@ -18,13 +7,13 @@ export type CircleConfig = {
 };
 
 export type CollectionConfig = {
-  ownerAddress: Address,
-  content: Cell,
-  circles: CircleConfig[],
-  nftItemCode: Cell,
+  authorityAddress: Address,
+  metadata: Cell,
+  map: CircleConfig[],
+  itemCode: Cell,
 };
 
-export const generateCirclesDict = (circles: CircleConfig[]) => {
+export const generateMapDict = (circles: CircleConfig[]) => {
   const circlesDict = Dictionary.empty(Dictionary.Keys.Uint(256), Dictionary.Values.Cell())
 
   for (let i = 0; i < circles.length; i++) {
@@ -36,20 +25,22 @@ export const generateCirclesDict = (circles: CircleConfig[]) => {
   return circlesDict;
 }
 
-export const generateItemContent = (colors: string[]) => {
+export const generateItemContent = (flags: boolean[]) => {
   const content = beginCell();
-  for (const color of colors) {
-    content.storeStringTail(color);
+  for (const flag of flags) {
+    content.storeBit(flag);
   }
   return content.endCell();
 };
 
 export function collectionConfigToCell(config: CollectionConfig): Cell {
+  const circlesCell = beginCell().storeDictDirect(generateMapDict(config.map)).endCell();
+
   return beginCell()
-    .storeAddress(config.ownerAddress)
-    .storeRef(config.content)
-    .storeRef(beginCell().storeDictDirect(generateCirclesDict(config.circles)).endCell())
-    .storeRef(config.nftItemCode)
+    .storeAddress(config.authorityAddress)
+    .storeRef(config.metadata)
+    .storeRef(circlesCell)
+    .storeRef(config.itemCode)
     .endCell();
 }
 
@@ -67,35 +58,9 @@ export class Collection implements Contract {
     return new Collection(contractAddress(workchain, init), init);
   }
 
-  async sendDeploy(provider: ContractProvider, via: Sender, value: bigint) {
-    await provider.internal(via, {
-      value,
-      sendMode: SendMode.PAY_GAS_SEPARATELY,
-      body: beginCell().endCell(),
-    });
-  }
-
-  async sendDeployNftItem(provider: ContractProvider, via: Sender, ownerAddress: Address, colors: string[]) {
-    await provider.internal(via, {
-      value: toNano('0.5'),
-      sendMode: SendMode.PAY_GAS_SEPARATELY,
-      body: beginCell()
-        .storeUint(1, 32)
-        .storeUint(0, 64)
-        .storeAddress(ownerAddress)
-        .storeRef(generateItemContent(colors))
-        .endCell(),
-    });
-  }
-
   async getCollectionData(provider: ContractProvider): Promise<[bigint, Cell, Address]> {
     const result = await provider.get('get_collection_data', []);
     return [result.stack.readBigNumber(), result.stack.readCell(), result.stack.readAddress()];
-  }
-
-  async getNftIndexByOwnerAddress(provider: ContractProvider, owner: Address): Promise<bigint> {
-    const result = await provider.get('get_nft_index_by_owner_address', [{ type: 'slice', cell: beginCell().storeAddress(owner).endCell() }]);
-    return result.stack.readBigNumber();
   }
 
   async getNftContent(provider: ContractProvider, index: bigint, individualContent: Cell): Promise<Cell> {

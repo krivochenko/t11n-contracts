@@ -1,0 +1,159 @@
+#include "imports/stdlib.fc";
+#include "imports/op-codes.fc";
+#include "imports/helpers.fc";
+#include "imports/helpers::authority.fc";
+#include "imports/helpers::collection.fc";
+#include "imports/helpers::item.fc";
+
+global slice storage::owner_address;
+global cell storage::collection_code;
+global cell storage::item_code;
+global slice storage::candidate_collection_address;
+global int storage::candidate_collection_countries_count;
+global slice storage::latest_collection_address;
+global int storage::latest_collection_countries_count;
+
+() load_data() impure {
+    slice ds = get_data().begin_parse();
+
+    storage::owner_address = ds~load_msg_addr();
+
+    cell contracts_code = ds~load_ref();
+    slice contracts_code_slice = contracts_code.begin_parse();
+
+    storage::collection_code = contracts_code_slice~load_ref();
+    storage::item_code = contracts_code_slice~load_ref();
+
+    if (ds.slice_refs() > 0) {
+        cell versions = ds~load_ref();
+        slice versions_slice = versions.begin_parse();
+        storage::candidate_collection_address = versions_slice~load_msg_addr();
+        storage::candidate_collection_countries_count = versions_slice~load_uint(64);
+        storage::latest_collection_address = versions_slice~load_msg_addr();
+        storage::latest_collection_countries_count = versions_slice~load_uint(64);
+    } else {
+        storage::candidate_collection_address = null_addr();
+        storage::candidate_collection_countries_count = 0;
+        storage::latest_collection_address = null_addr();
+        storage::latest_collection_countries_count = 0;
+    }
+}
+
+() save_data() impure {
+    cell contracts_code = begin_cell()
+            .store_ref(storage::collection_code)
+            .store_ref(storage::item_code)
+            .end_cell();
+
+    cell versions = begin_cell()
+            .store_slice(storage::candidate_collection_address)
+            .store_uint(storage::candidate_collection_countries_count, 64)
+            .store_slice(storage::latest_collection_address)
+            .store_uint(storage::latest_collection_countries_count, 64)
+            .end_cell();
+
+    set_data(
+            begin_cell()
+                    .store_slice(storage::owner_address)
+                    .store_ref(contracts_code)
+                    .store_ref(versions)
+                    .end_cell()
+    );
+}
+
+() recv_internal(int my_balance, int msg_value, cell in_msg_full, slice in_msg_body) impure {
+    if (in_msg_body.slice_empty?()) {
+        return ();
+    }
+    slice cs = in_msg_full.begin_parse();
+    int flags = cs~load_uint(4);
+
+    if (flags & 1) {
+        return ();
+    }
+    slice sender_address = cs~load_msg_addr();
+    int op = in_msg_body~load_uint(32);
+    int query_id = in_msg_body~load_uint(64);
+
+    load_data();
+
+    if (op == op::authority::deploy_collection) {
+        throw_unless(401, equal_slices(storage::owner_address, sender_address));
+
+        cell collection_content = in_msg_body~load_ref();
+        cell countries = in_msg_body~load_ref();
+
+        cell collection_state_init = collection::get_state_init(storage::collection_code, my_address(), collection_content, countries, storage::item_code);
+        slice collection_address = calculate_address(collection_state_init);
+
+        storage::candidate_collection_address = collection::send_deploy(query_id, collection_state_init);
+        storage::candidate_collection_countries_count = get_dict_size(countries, 256);
+
+        save_data();
+        return ();
+    }
+    if (op == op::authority::release_collection) {
+        throw_unless(401, equal_slices(sender_address, storage::candidate_collection_address));
+
+        storage::latest_collection_address = storage::candidate_collection_address;
+        storage::latest_collection_countries_count = storage::candidate_collection_countries_count;
+
+        save_data();
+        return ();
+    }
+    if (op == op::authority::deploy_item) {
+        slice item_owner_address = in_msg_body~load_msg_addr();
+        cell item_flags = in_msg_body~load_ref();
+
+        int item_index = slice_hash(item_owner_address);
+        cell item_state_init = item::get_state_init(storage::item_code, item_index, my_address());
+        slice item_address = item::get_address(workchain(), item_state_init);
+
+        cell item_data = begin_cell()
+                .store_slice(storage::latest_collection_address)
+                .store_uint(storage::latest_collection_countries_count, 64)
+                .store_slice(item_owner_address)
+                .store_ref(item_flags)
+                .end_cell();
+
+        cell payload = begin_cell()
+                .store_uint(op::transfer(), 32)
+                .store_uint(query_id, 64)
+                .store_slice(item_owner_address)
+                .store_uint(0, 2)
+                .store_int(0, 1)
+                .store_coins(0)
+                .store_uint(0, 32)
+                .store_ref(item_data)
+                .end_cell();
+
+        var msg = begin_cell()
+                .store_uint(0x18, 6)
+                .store_slice(item_address)
+                .store_coins(100000000)
+                .store_uint(4 + 2 + 1, 1 + 4 + 4 + 64 + 32 + 1 + 1 + 1)
+                .store_ref(item_state_init)
+                .store_ref(payload);
+        send_raw_message(msg.end_cell(), 1);
+
+        return ();
+    }
+    if (op == op::authority::upgrade_item) {
+        int item_index = slice_hash(sender_address);
+        cell item_state_init = item::get_state_init(storage::item_code, item_index, my_address());
+        slice item_address = item::get_address(workchain(), item_state_init);
+        cell content = in_msg_body~load_ref();
+
+        return ();
+    }
+    throw(0xffff);
+}
+
+int get_nft_index_by_owner_address(slice owner_address) method_id {
+    return slice_hash(owner_address);
+}
+
+(slice, int) get_latest_collection() method_id {
+    load_data();
+    return (storage::latest_collection_address, storage::latest_collection_countries_count);
+}

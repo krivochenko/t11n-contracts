@@ -3,25 +3,38 @@ import { Collection } from '../wrappers/Collection';
 import { compile, NetworkProvider } from '@ton-community/blueprint';
 import { buildOnChainMetadata, data } from '../helpers/metadata';
 import { Item } from '../wrappers/Item';
+import { Authority } from '../wrappers/Authority';
 
 export async function run(provider: NetworkProvider) {
+  const authorityCode = await compile('Authority');
   const collectionCode = await compile('Collection');
   const itemCode = await compile('Item');
 
-  const collection = provider.open(Collection.createFromConfig({
+  const authority = provider.open(Authority.createFromConfig({
     ownerAddress: provider.sender().address!,
-    content: buildOnChainMetadata(data),
-    circles: [
-      { x: 60, y: 50, radius: 20 },
-      { x: 40, y: 50, radius: 20 },
-    ],
-    nftItemCode: itemCode,
-  }, collectionCode));
-  await collection.sendDeploy(provider.sender(), toNano('0.1'));
-  await provider.waitForDeploy(collection.address);
+    collectionCode,
+    itemCode,
+  }, authorityCode));
 
-  await collection.sendDeployNftItem(provider.sender(), provider.sender().address!, ['ffffff', '000000']);
-  const itemIndex = await collection.getNftIndexByOwnerAddress(provider.sender().address!);
-  const item = Item.createFromConfig({ index: itemIndex, collectionAddress: collection.address }, itemCode);
-  await provider.waitForDeploy(item.address);
+  await authority.sendDeploy(provider.sender(), toNano('0.05'));
+  await provider.waitForDeploy(authority.address, 20);
+
+  const metadata = buildOnChainMetadata(data);
+  const map = [
+    { x: 60, y: 50, radius: 20 },
+    { x: 40, y: 50, radius: 20 },
+  ];
+  await authority.sendDeployCollection(provider.sender(), metadata, map);
+  const collection = provider.open(Collection.createFromConfig({
+    authorityAddress: authority.address,
+    metadata,
+    map,
+    itemCode,
+  }, collectionCode));
+  await provider.waitForDeploy(collection.address, 20);
+
+  await authority.sendDeployItem(provider.sender(), provider.sender().address!, [true, false]);
+  const itemIndex = await authority.getNftIndexByOwnerAddress(provider.sender().address!);
+  const item = Item.createFromConfig({ index: itemIndex, authorityAddress: authority.address }, itemCode);
+  await provider.waitForDeploy(item.address, 20);
 }
