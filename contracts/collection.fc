@@ -73,11 +73,12 @@ cell get_nft_content(int index, cell individual_nft_content) method_id {
     tuple parts = empty_tuple();
     parts~push_back("<svg viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'>");
 
-    (int key, slice val, int flag) = storage::map.udict_get_min?(256);
+    (int key, slice val, int flag) = storage::map.udict_get_min?(10);
+
     while (flag) {
         cell value_cell = val~load_ref();
         slice value = value_cell.begin_parse();
-        var (x, y, r) = (value~load_uint(32), value~load_uint(32), value~load_uint(32));
+        var (x, y, r) = (value~load_uint(12), value~load_uint(12), value~load_uint(12));
         slice color = individual_nft_content_slice~load_int(1) == true ? "000000" : "ffffff";
 
         parts~push_back("<circle fill='#");
@@ -90,7 +91,7 @@ cell get_nft_content(int index, cell individual_nft_content) method_id {
         parts~push_back(int_to_slice(r));
         parts~push_back("' />");
 
-        (key, val, flag) = storage::map.udict_get_next?(256, key);
+        (key, val, flag) = storage::map.udict_get_next?(10, key);
     }
 
     parts~push_back("</svg>");

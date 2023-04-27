@@ -6,9 +6,8 @@ global int init?;
 
 global int storage::index;
 global slice storage::authority_address;
-global slice storage::collection_address;
 global slice storage::owner_address;
-global int storage::countries_count;
+global cell storage::collection_data;
 global cell storage::content;
 
 () load_data() impure {
@@ -20,17 +19,12 @@ global cell storage::content;
     if (ds.slice_bits() > 0) {
         init? = -1;
         storage::owner_address = ds~load_msg_addr();
-
-        slice collection_data = ds~load_ref().begin_parse();
-        storage::collection_address = collection_data~load_msg_addr();
-        storage::countries_count = collection_data~load_uint(64);
-
+        storage::collection_data = ds~load_ref();
         storage::content = ds~load_ref();
     } else {
         init? = 0;
         storage::owner_address = null_addr();
-        storage::collection_address = null_addr();
-        storage::countries_count = 0;
+        storage::collection_data = null();
         storage::content = null();
     }
 }
@@ -41,7 +35,7 @@ global cell storage::content;
     b = b.store_slice(storage::authority_address);
     if (init?) {
         b = b.store_slice(storage::owner_address);
-        b = b.store_ref(begin_cell().store_slice(storage::collection_address).store_uint(storage::countries_count, 64).end_cell());
+        b = b.store_ref(storage::collection_data);
         b = b.store_ref(storage::content);
     }
     set_data(b.end_cell());
@@ -74,9 +68,8 @@ global cell storage::content;
 
         slice item_data = in_msg_body~load_ref().begin_parse();
 
-        storage::collection_address = item_data~load_msg_addr();
-        storage::countries_count = item_data~load_uint(64);
         storage::owner_address = item_data~load_msg_addr();
+        storage::collection_data = item_data~load_ref();
         storage::content = item_data~load_ref();
         init? = -1;
 
@@ -86,9 +79,14 @@ global cell storage::content;
         return ();
     }
     if (op == op::edit_content()) {
-        throw_unless(405, equal_slices(storage::owner_address, sender_address));
-
-        storage::content = in_msg_body~load_ref();
+        if (in_msg_body.slice_refs() == 2) {
+            throw_unless(405, equal_slices(storage::authority_address, sender_address));
+            storage::content = in_msg_body~load_ref();
+            storage::collection_data = in_msg_body~load_ref();
+        } else {
+            throw_unless(405, equal_slices(storage::owner_address, sender_address));
+            storage::content = in_msg_body~load_ref();
+        }
 
         store_data();
         return ();
@@ -103,5 +101,7 @@ global cell storage::content;
 
 (int, int, slice, slice, cell) get_nft_data() method_id {
     load_data();
-    return (init?, storage::index, storage::collection_address, storage::owner_address, storage::content);
+    slice collection_data_slice = storage::collection_data.begin_parse();
+    slice collection_address = collection_data_slice~load_msg_addr();
+    return (init?, storage::index, collection_address, storage::owner_address, storage::content);
 }

@@ -14,11 +14,11 @@ export type CollectionConfig = {
 };
 
 export const generateMapDict = (circles: CircleConfig[]) => {
-  const circlesDict = Dictionary.empty(Dictionary.Keys.Uint(256), Dictionary.Values.Cell())
+  const circlesDict = Dictionary.empty(Dictionary.Keys.Uint(10), Dictionary.Values.Cell())
 
   for (let i = 0; i < circles.length; i++) {
     const { x, y, radius } = circles[i];
-    const value = beginCell().storeUint(x, 32).storeUint(y, 32).storeUint(radius, 32).endCell();
+    const value = beginCell().storeUint(x, 12).storeUint(y, 12).storeUint(radius, 12).endCell();
     circlesDict.set(i, value);
   }
 

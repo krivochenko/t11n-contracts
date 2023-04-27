@@ -108,9 +108,24 @@ describe('Authority', () => {
       image_data: '<svg viewBox=\'0 0 100 100\' xmlns=\'http://www.w3.org/2000/svg\'><circle fill=\'#ffffff\' cx=\'60\' cy=\'50\' r=\'20\' /><circle fill=\'#000000\' cx=\'40\' cy=\'50\' r=\'20\' /></svg>'
     });
 
-    const revertedCircles = [...map].reverse();
-    await authority.sendDeployCollection(deployer.getSender(), metadata, revertedCircles);
+    const reversedMap = [...map].reverse();
+    await authority.sendDeployCollection(deployer.getSender(), metadata, reversedMap);
     const v2 = await authority.getLatestCollection();
     expect(v2!.address).not.toEqualAddress(v1!.address);
+
+    await authority.sendUpgradeItem(deployer.getSender(), newFlags);
+    const [, , collectionAddressAfterUpgrade, , contentAfterUpgrade] = await item.getNftData();
+    expect(collectionAddressAfterUpgrade).toEqualAddress(v2!.address);
+    expect(contentAfterUpgrade).toEqualCell(generateItemContent(newFlags));
+
+    const collectionV2 = blockchain.openContract(Collection.createFromAddress(collectionAddressAfterUpgrade))
+    const nftContentAfterUpgrade = await collectionV2.getNftContent(index, contentAfterUpgrade);
+    const metadataDictAfterUpgrade = nftContentAfterUpgrade.beginParse().skip(8).loadDict(Dictionary.Keys.Buffer(32), Dictionary.Values.Cell());
+    const parsedMetadataAfterUpgrade = parseMetadata(metadataDictAfterUpgrade, ['name', 'description', 'image_data']);
+    expect(parsedMetadataAfterUpgrade).toEqual({
+      name: 'Name',
+      description: 'Description',
+      image_data: '<svg viewBox=\'0 0 100 100\' xmlns=\'http://www.w3.org/2000/svg\'><circle fill=\'#ffffff\' cx=\'40\' cy=\'50\' r=\'20\' /><circle fill=\'#000000\' cx=\'60\' cy=\'50\' r=\'20\' /></svg>'
+    });
   });
 });

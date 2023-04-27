@@ -6,9 +6,10 @@ import {
   contractAddress,
   ContractProvider,
   Sender,
-  SendMode, toNano
+  SendMode,
+  toNano
 } from 'ton-core';
-import { CircleConfig, generateMapDict, generateItemContent } from './Collection';
+import { CircleConfig, generateItemContent, generateMapDict } from './Collection';
 
 export type AuthorityConfig = {
   ownerAddress: Address,
@@ -19,12 +20,8 @@ export type AuthorityConfig = {
 export function authorityConfigToCell(config: AuthorityConfig): Cell {
   return beginCell()
     .storeAddress(config.ownerAddress)
-    .storeRef(
-      beginCell()
-        .storeRef(config.collectionCode)
-        .storeRef(config.itemCode)
-        .endCell()
-    )
+    .storeRef(config.collectionCode)
+    .storeRef(config.itemCode)
     .endCell();
 }
 
@@ -50,8 +47,8 @@ export class Authority implements Contract {
     });
   }
 
-  async sendDeployCollection(provider: ContractProvider, via: Sender, metadata: Cell, circles: CircleConfig[]) {
-    const circlesCell = beginCell().storeDictDirect(generateMapDict(circles)).endCell();
+  async sendDeployCollection(provider: ContractProvider, via: Sender, metadata: Cell, map: CircleConfig[]) {
+    const mapCell = beginCell().storeDictDirect(generateMapDict(map)).endCell();
 
     await provider.internal(via, {
       value: toNano('0.5'),
@@ -60,7 +57,7 @@ export class Authority implements Contract {
         .storeUint(0x647ed24f, 32)
         .storeUint(0, 64)
         .storeRef(metadata)
-        .storeRef(circlesCell)
+        .storeRef(mapCell)
         .endCell(),
     });
   }
@@ -78,13 +75,26 @@ export class Authority implements Contract {
     });
   }
 
+  async sendUpgradeItem(provider: ContractProvider, via: Sender, flags: boolean[]) {
+    await provider.internal(via, {
+      value: toNano('0.5'),
+      sendMode: SendMode.PAY_GAS_SEPARATELY,
+      body: beginCell()
+        .storeUint(0x46871692, 32)
+        .storeUint(0, 64)
+        .storeRef(generateItemContent(flags))
+        .endCell(),
+    })
+  }
+
   async getLatestCollection(provider: ContractProvider): Promise<{ address: Address, countriesCount: number } | null> {
     const result = await provider.get('get_latest_collection', []);
-    const address = result.stack.readAddressOpt();
-    if (address) {
+    const collectionData = result.stack.readCellOpt();
+    if (collectionData) {
+      const collectionDataSlice = collectionData.beginParse();
       return {
-        address,
-        countriesCount: result.stack.readNumber(),
+        address: collectionDataSlice.loadAddress(),
+        countriesCount: collectionDataSlice.loadUint(10),
       };
     }
     return null;
