@@ -67,7 +67,7 @@ global cell storage::latest_collection;
         cell msg_body = begin_cell().store_uint(op::collection::deploy, 32).store_uint(query_id, 64).end_cell();
         slice collection_address = send_deploy_message(collection_state_init, 500000000, msg_body, 1);
 
-        storage::candidate_collection = begin_cell().store_slice(collection_address).store_uint(get_dict_size(map, 10), 10).end_cell();
+        storage::candidate_collection = begin_cell().store_slice(collection_address).store_uint(get_dict_size(map, 256), 10).end_cell();
 
         save_data();
         return ();

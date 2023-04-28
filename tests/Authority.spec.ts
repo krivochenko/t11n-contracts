@@ -1,16 +1,12 @@
 import { Blockchain, SandboxContract, TreasuryContract } from '@ton-community/sandbox';
 import { Cell, Dictionary, toNano } from 'ton-core';
-import { CircleConfig, Collection, generateItemContent } from '../wrappers/Collection';
+import { Collection, generateItemContent } from '../wrappers/Collection';
 import '@ton-community/test-utils';
 import { compile } from '@ton-community/blueprint';
 import { Item } from '../wrappers/Item';
 import { Authority } from '../wrappers/Authority';
 import { buildOnChainMetadata, data, parseMetadata } from '../helpers/metadata';
-
-const map: CircleConfig[] = [
-  { x: 60, y: 50, radius: 20 },
-  { x: 40, y: 50, radius: 20 },
-];
+import { readFileSync } from 'fs';
 
 describe('Authority', () => {
   let authorityCode: Cell;
@@ -49,21 +45,20 @@ describe('Authority', () => {
 
   it('should deploy collection', async () => {
     const metadata = buildOnChainMetadata(data);
-    await authority.sendDeployCollection(deployer.getSender(), metadata, map);
-
+    await authority.sendDeployCollection(deployer.getSender(), metadata, 'tests/files/maps/test-1.svg');
     const collection = blockchain.openContract(Collection.createFromConfig({
       authorityAddress: authority.address,
       metadata,
-      map,
+      map: 'tests/files/maps/test-1.svg',
       itemCode: itemCode,
     }, collectionCode));
 
     const v1 = await authority.getLatestCollection();
     expect(v1).not.toBeNull();
     expect(v1!.address).toEqualAddress(collection.address)
-    expect(v1!.countriesCount).toBe(2);
+    expect(v1!.countriesCount).toBe(5);
 
-    const flags = [true, false];
+    const flags = [true, false, false, true, true];
     await authority.sendDeployItem(deployer.getSender(), deployer.address, flags);
 
     const [nextItemIndex, collectionContent, collectionOwnerAddress] = await collection.getCollectionData();
@@ -91,10 +86,10 @@ describe('Authority', () => {
     expect(parsedMetadata).toEqual({
       name: 'Name',
       description: 'Description',
-      image_data: '<svg viewBox=\'0 0 100 100\' xmlns=\'http://www.w3.org/2000/svg\'><circle fill=\'#000000\' cx=\'60\' cy=\'50\' r=\'20\' /><circle fill=\'#ffffff\' cx=\'40\' cy=\'50\' r=\'20\' /></svg>'
+      image_data: readFileSync('tests/files/results/result-1.svg').toString('utf-8'),
     });
 
-    const newFlags = [false, true];
+    const newFlags = [true, true, true, true, true];
     await item.sendEditContent(deployer.getSender(), newFlags);
     const [, , , , newContent] = await item.getNftData();
 
@@ -105,11 +100,10 @@ describe('Authority', () => {
     expect(newParsedMetadata).toEqual({
       name: 'Name',
       description: 'Description',
-      image_data: '<svg viewBox=\'0 0 100 100\' xmlns=\'http://www.w3.org/2000/svg\'><circle fill=\'#ffffff\' cx=\'60\' cy=\'50\' r=\'20\' /><circle fill=\'#000000\' cx=\'40\' cy=\'50\' r=\'20\' /></svg>'
+      image_data: readFileSync('tests/files/results/result-2.svg').toString('utf-8'),
     });
 
-    const reversedMap = [...map].reverse();
-    await authority.sendDeployCollection(deployer.getSender(), metadata, reversedMap);
+    await authority.sendDeployCollection(deployer.getSender(), metadata, 'tests/files/maps/test-2.svg');
     const v2 = await authority.getLatestCollection();
     expect(v2!.address).not.toEqualAddress(v1!.address);
 
@@ -125,7 +119,7 @@ describe('Authority', () => {
     expect(parsedMetadataAfterUpgrade).toEqual({
       name: 'Name',
       description: 'Description',
-      image_data: '<svg viewBox=\'0 0 100 100\' xmlns=\'http://www.w3.org/2000/svg\'><circle fill=\'#ffffff\' cx=\'40\' cy=\'50\' r=\'20\' /><circle fill=\'#000000\' cx=\'60\' cy=\'50\' r=\'20\' /></svg>'
+      image_data: readFileSync('tests/files/results/result-3.svg').toString('utf-8'),
     });
   });
 });

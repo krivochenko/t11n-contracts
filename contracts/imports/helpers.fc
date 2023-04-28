@@ -77,6 +77,7 @@ int get_dict_size(cell dict, int key_size) {
     int size = 0;
 
     (int key, slice value, int flag) = dict.udict_get_min?(key_size);
+
     while (flag) {
         size = size + 1;
         (key, value, flag) = dict.udict_get_next?(key_size, key);

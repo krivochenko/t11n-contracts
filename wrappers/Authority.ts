@@ -9,7 +9,8 @@ import {
   SendMode,
   toNano
 } from 'ton-core';
-import { CircleConfig, generateItemContent, generateMapDict } from './Collection';
+import { generateItemContent } from './Collection';
+import { mapToCell } from '../helpers/map';
 
 export type AuthorityConfig = {
   ownerAddress: Address,
@@ -47,9 +48,7 @@ export class Authority implements Contract {
     });
   }
 
-  async sendDeployCollection(provider: ContractProvider, via: Sender, metadata: Cell, map: CircleConfig[]) {
-    const mapCell = beginCell().storeDictDirect(generateMapDict(map)).endCell();
-
+  async sendDeployCollection(provider: ContractProvider, via: Sender, metadata: Cell, map: string) {
     await provider.internal(via, {
       value: toNano('0.5'),
       sendMode: SendMode.PAY_GAS_SEPARATELY,
@@ -57,7 +56,7 @@ export class Authority implements Contract {
         .storeUint(0x647ed24f, 32)
         .storeUint(0, 64)
         .storeRef(metadata)
-        .storeRef(mapCell)
+        .storeRef(mapToCell(map))
         .endCell(),
     });
   }

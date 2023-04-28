@@ -1,0 +1,42 @@
+cell generate_svg(cell individual_content, cell map) {
+    slice individual_content_slice = individual_content.begin_parse();
+    tuple parts = empty_tuple();
+
+    parts~push_back("<svg xmlns='http://www.w3.org/2000/svg' fill='#ececec' stroke='#000' stroke-linecap='round' stroke-linejoin='round' ");
+    parts~push_back("stroke-width='0.2' version='1.2' viewBox='0 0 2000 857'>");
+
+    (int country_key, slice country, int country_flag) = map.udict_get_min?(256);
+    while (country_flag) {
+        slice fill = individual_content_slice~load_int(1) == true ? "ff0000" : "00ff00";
+        cell country_dict = country~load_ref();
+
+        (int path_key, slice path_value, int path_flag) = country_dict.udict_get_min?(10);
+        while (path_flag) {
+            slice path = path_value~load_ref().begin_parse();
+
+            parts~push_back("<path fill='");
+            parts~push_back(fill);
+            parts~push_back("' d='");
+            parts~push_back(path);
+            parts~push_back("'/>");
+
+            (path_key, path_value, path_flag) = country_dict.udict_get_next?(10, path_key);
+        }
+        (country_key, country, country_flag) = map.udict_get_next?(256, country_key);
+    }
+
+    parts~push_back("</svg>");
+
+    return concat_to_chunk(parts);
+}
+
+cell get_full_item_content(cell individula_content, cell map) {
+    cell svg = generate_svg(individula_content, map);
+
+    cell content = new_dict();
+    content~udict_set_ref(256, "name"H, begin_cell().store_uint(0, 8).store_slice("Name").end_cell());
+    content~udict_set_ref(256, "description"H, begin_cell().store_uint(0, 8).store_slice("Description").end_cell());
+    content~udict_set_ref(256, "image_data"H, svg);
+
+    return begin_cell().store_uint(0, 8).store_dict(content).end_cell();
+}

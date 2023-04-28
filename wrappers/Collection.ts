@@ -1,29 +1,12 @@
-import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider, Dictionary } from 'ton-core';
-
-export type CircleConfig = {
-  x: number,
-  y: number,
-  radius: number,
-};
+import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider } from 'ton-core';
+import { mapToCell } from '../helpers/map';
 
 export type CollectionConfig = {
   authorityAddress: Address,
   metadata: Cell,
-  map: CircleConfig[],
+  map: string,
   itemCode: Cell,
 };
-
-export const generateMapDict = (circles: CircleConfig[]) => {
-  const circlesDict = Dictionary.empty(Dictionary.Keys.Uint(10), Dictionary.Values.Cell())
-
-  for (let i = 0; i < circles.length; i++) {
-    const { x, y, radius } = circles[i];
-    const value = beginCell().storeUint(x, 12).storeUint(y, 12).storeUint(radius, 12).endCell();
-    circlesDict.set(i, value);
-  }
-
-  return circlesDict;
-}
 
 export const generateItemContent = (flags: boolean[]) => {
   const content = beginCell();
@@ -34,12 +17,10 @@ export const generateItemContent = (flags: boolean[]) => {
 };
 
 export function collectionConfigToCell(config: CollectionConfig): Cell {
-  const circlesCell = beginCell().storeDictDirect(generateMapDict(config.map)).endCell();
-
   return beginCell()
     .storeAddress(config.authorityAddress)
     .storeRef(config.metadata)
-    .storeRef(circlesCell)
+    .storeRef(mapToCell(config.map))
     .storeRef(config.itemCode)
     .endCell();
 }

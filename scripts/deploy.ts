@@ -16,23 +16,20 @@ export async function run(provider: NetworkProvider) {
     itemCode,
   }, authorityCode));
 
-  // await authority.sendDeploy(provider.sender(), toNano('0.05'));
+  await authority.sendDeploy(provider.sender(), toNano('0.05'));
   await provider.waitForDeploy(authority.address, 30);
 
   const metadata = buildOnChainMetadata(data);
-  const map = [
-    { x: 60, y: 50, radius: 20 },
-    { x: 40, y: 50, radius: 20 },
-  ];
-  await authority.sendDeployCollection(provider.sender(), metadata, [...map].reverse());
+  await authority.sendDeployCollection(provider.sender(), metadata, 'assets/map.svg');
   const collection = provider.open(Collection.createFromConfig({
     authorityAddress: authority.address,
     metadata,
-    map: [...map].reverse(),
+    map: 'assets/map.svg',
     itemCode,
   }, collectionCode));
   await provider.waitForDeploy(collection.address, 30);
 
+  //
   // await authority.sendDeployItem(provider.sender(), provider.sender().address!, [true, false]);
   // const itemIndex = await authority.getNftIndexByOwnerAddress(provider.sender().address!);
   // const item = Item.createFromConfig({ index: itemIndex, authorityAddress: authority.address }, itemCode);
