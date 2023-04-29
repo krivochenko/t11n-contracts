@@ -16,5 +16,7 @@ export async function run(provider: NetworkProvider) {
 
   const itemIndex = await authority.getNftIndexByOwnerAddress(provider.sender().address!);
   const item = provider.open(Item.createFromConfig({ index: itemIndex, authorityAddress: authority.address }, itemCode));
-  await item.sendEditContent(provider.sender(), [false, true]);
+
+  const content = Array(220).fill(true).map(() => Math.random() < 0.5);
+  await item.sendEditContent(provider.sender(), content);
 }

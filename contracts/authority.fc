@@ -6,8 +6,8 @@
 global slice storage::owner_address;
 global cell storage::collection_code;
 global cell storage::item_code;
-global cell storage::candidate_collection;
-global cell storage::latest_collection;
+global cell storage::candidate_version;
+global cell storage::latest_version;
 
 () load_data() impure {
     slice ds = get_data().begin_parse();
@@ -17,14 +17,14 @@ global cell storage::latest_collection;
     storage::item_code = ds~load_ref();
 
     if (ds.slice_refs() > 0) {
-        storage::candidate_collection = ds~load_ref();
+        storage::candidate_version = ds~load_ref();
     } else {
-        storage::candidate_collection = begin_cell().end_cell();
+        storage::candidate_version = begin_cell().end_cell();
     }
     if (ds.slice_refs() > 0) {
-        storage::latest_collection = ds~load_ref();
+        storage::latest_version = ds~load_ref();
     } else {
-        storage::latest_collection = null();
+        storage::latest_version = null();
     }
 }
 
@@ -33,11 +33,11 @@ global cell storage::latest_collection;
             .store_slice(storage::owner_address)
             .store_ref(storage::collection_code)
             .store_ref(storage::item_code);
-    if (~ null?(storage::candidate_collection)) {
-        b = b.store_ref(storage::candidate_collection);
+    if (~ null?(storage::candidate_version)) {
+        b = b.store_ref(storage::candidate_version);
     }
-    if (~ null?(storage::latest_collection)) {
-        b = b.store_ref(storage::latest_collection);
+    if (~ null?(storage::latest_version)) {
+        b = b.store_ref(storage::latest_version);
     }
     set_data(b.end_cell());
 }
@@ -65,19 +65,19 @@ global cell storage::latest_collection;
 
         cell collection_state_init = get_collection_state_init(storage::collection_code, my_address(), collection_content, map, storage::item_code);
         cell msg_body = begin_cell().store_uint(op::collection::deploy, 32).store_uint(query_id, 64).end_cell();
-        slice collection_address = send_deploy_message(collection_state_init, 500000000, msg_body, 1);
+        slice collection_address = send_deploy_message(collection_state_init, 0, msg_body, 64);
 
-        storage::candidate_collection = begin_cell().store_slice(collection_address).store_uint(get_dict_size(map, 256), 10).end_cell();
+        storage::candidate_version = begin_cell().store_slice(collection_address).store_uint(get_dict_size(map, 256), 10).end_cell();
 
         save_data();
         return ();
     }
     if (op == op::authority::release_collection) {
-        slice candidate_collection_slice = storage::candidate_collection.begin_parse();
-        slice candidate_collection_address = candidate_collection_slice~load_msg_addr();
-        throw_unless(401, equal_slices(sender_address, candidate_collection_address));
+        slice candidate_version_slice = storage::candidate_version.begin_parse();
+        slice candidate_version_address = candidate_version_slice~load_msg_addr();
+        throw_unless(401, equal_slices(sender_address, candidate_version_address));
 
-        storage::latest_collection = storage::candidate_collection;
+        storage::latest_version = storage::candidate_version;
 
         save_data();
         return ();
@@ -92,7 +92,7 @@ global cell storage::latest_collection;
 
         cell item_data = begin_cell()
                 .store_slice(item_owner_address)
-                .store_ref(storage::latest_collection)
+                .store_ref(storage::latest_version)
                 .store_ref(item_content)
                 .end_cell();
 
@@ -107,7 +107,7 @@ global cell storage::latest_collection;
                 .store_ref(item_data)
                 .end_cell();
 
-        send_deploy_message(item_state_init, 100000000, msg_body, 1);
+        send_deploy_message(item_state_init, 0, msg_body, 64);
 
         return ();
     }
@@ -118,9 +118,9 @@ global cell storage::latest_collection;
 
         builder msg_body = begin_cell()
                 .store_ref(in_msg_body~load_ref())
-                .store_ref(storage::latest_collection);
+                .store_ref(storage::latest_version);
 
-        send_message(item_address, 50000000, op::edit_content(), query_id, msg_body, 128);
+        send_message(item_address, 0, op::edit_content(), query_id, msg_body, 64);
 
         return ();
     }
@@ -131,8 +131,7 @@ int get_nft_index_by_owner_address(slice owner_address) method_id {
     return slice_hash(owner_address);
 }
 
-cell get_latest_collection() method_id {
+cell get_latest_version() method_id {
     load_data();
-
-    return storage::latest_collection;
+    return storage::latest_version;
 }

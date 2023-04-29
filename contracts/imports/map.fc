@@ -1,13 +1,15 @@
-cell generate_svg(cell individual_content, cell map) {
+#include "text.fc";
+
+cell generate_svg(cell individual_content, cell map) inline {
     slice individual_content_slice = individual_content.begin_parse();
     tuple parts = empty_tuple();
 
-    parts~push_back("<svg xmlns='http://www.w3.org/2000/svg' fill='#ececec' stroke='#000' stroke-linecap='round' stroke-linejoin='round' ");
-    parts~push_back("stroke-width='0.2' version='1.2' viewBox='0 0 2000 857'>");
+    parts~push_back("<svg xmlns='http://www.w3.org/2000/svg' fill='#ececec' stroke='#000' stroke-width='0.2' viewBox='0 0 2000 2000'>");
+    parts~push_back("<g transform='translate(0 570)'>");
 
     (int country_key, slice country, int country_flag) = map.udict_get_min?(256);
     while (country_flag) {
-        slice fill = individual_content_slice~load_int(1) == true ? "ff0000" : "00ff00";
+        slice fill = individual_content_slice~load_int(1) == true ? "#ff0000" : "#00ff00";
         cell country_dict = country~load_ref();
 
         (int path_key, slice path_value, int path_flag) = country_dict.udict_get_min?(10);
@@ -25,12 +27,12 @@ cell generate_svg(cell individual_content, cell map) {
         (country_key, country, country_flag) = map.udict_get_next?(256, country_key);
     }
 
-    parts~push_back("</svg>");
+    parts~push_back("</g></svg>");
 
     return concat_to_chunk(parts);
 }
 
-cell get_full_item_content(cell individula_content, cell map) {
+cell get_full_item_content(cell individula_content, cell map) inline {
     cell svg = generate_svg(individula_content, map);
 
     cell content = new_dict();
@@ -39,4 +41,13 @@ cell get_full_item_content(cell individula_content, cell map) {
     content~udict_set_ref(256, "image_data"H, svg);
 
     return begin_cell().store_uint(0, 8).store_dict(content).end_cell();
+}
+
+() validate_map_content(cell version_data, cell content) inline {
+    slice version_data_slice = version_data.begin_parse();
+    version_data_slice~load_msg_addr();
+    int countries_count = version_data_slice~load_uint(10);
+
+    slice content_slice = content.begin_parse();
+    throw_unless(400, countries_count == content_slice.slice_bits());
 }

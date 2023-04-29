@@ -1,5 +1,5 @@
 import { Blockchain, SandboxContract, TreasuryContract } from '@ton-community/sandbox';
-import { Cell, Dictionary, toNano } from 'ton-core';
+import { Cell, Dictionary } from 'ton-core';
 import { Collection, generateItemContent } from '../wrappers/Collection';
 import '@ton-community/test-utils';
 import { compile } from '@ton-community/blueprint';
@@ -33,7 +33,7 @@ describe('Authority', () => {
       itemCode,
     }, authorityCode));
 
-    const deployResult = await authority.sendDeploy(deployer.getSender(), toNano('1'));
+    const deployResult = await authority.sendDeploy(deployer.getSender());
 
     expect(deployResult.transactions).toHaveTransaction({
       from: deployer.address,
@@ -46,14 +46,10 @@ describe('Authority', () => {
   it('should deploy collection', async () => {
     const metadata = buildOnChainMetadata(data);
     await authority.sendDeployCollection(deployer.getSender(), metadata, 'tests/files/maps/test-1.svg');
-    const collection = blockchain.openContract(Collection.createFromConfig({
-      authorityAddress: authority.address,
-      metadata,
-      map: 'tests/files/maps/test-1.svg',
-      itemCode: itemCode,
-    }, collectionCode));
+    const authorityAddress = authority.address;
+    const collection = blockchain.openContract(Collection.createFromConfig({ authorityAddress, metadata, map: 'tests/files/maps/test-1.svg', itemCode }, collectionCode));
 
-    const v1 = await authority.getLatestCollection();
+    const v1 = await authority.getLatestVersion();
     expect(v1).not.toBeNull();
     expect(v1!.address).toEqualAddress(collection.address)
     expect(v1!.countriesCount).toBe(5);
@@ -68,10 +64,7 @@ describe('Authority', () => {
     expect(collectionOwnerAddress).toEqualAddress(authority.address);
 
     const itemIndex = await authority.getNftIndexByOwnerAddress(deployer.address);
-    const item = blockchain.openContract(Item.createFromConfig({
-      authorityAddress: authority.address,
-      index: itemIndex
-    }, itemCode));
+    const item = blockchain.openContract(Item.createFromConfig({ authorityAddress, index: itemIndex }, itemCode));
     const [init, index, collectionAddress, itemOwnerAddress, content] = await item.getNftData();
 
     expect(init).toBe(true);
@@ -104,13 +97,13 @@ describe('Authority', () => {
     });
 
     await authority.sendDeployCollection(deployer.getSender(), metadata, 'tests/files/maps/test-2.svg');
-    const v2 = await authority.getLatestCollection();
+    const v2 = await authority.getLatestVersion();
     expect(v2!.address).not.toEqualAddress(v1!.address);
 
-    await authority.sendUpgradeItem(deployer.getSender(), newFlags);
+    await authority.sendUpgradeItem(deployer.getSender(), [true, true, true, true]);
     const [, , collectionAddressAfterUpgrade, , contentAfterUpgrade] = await item.getNftData();
     expect(collectionAddressAfterUpgrade).toEqualAddress(v2!.address);
-    expect(contentAfterUpgrade).toEqualCell(generateItemContent(newFlags));
+    expect(contentAfterUpgrade).toEqualCell(generateItemContent([true, true, true, true]));
 
     const collectionV2 = blockchain.openContract(Collection.createFromAddress(collectionAddressAfterUpgrade))
     const nftContentAfterUpgrade = await collectionV2.getNftContent(index, contentAfterUpgrade);

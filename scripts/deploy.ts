@@ -1,4 +1,3 @@
-import { toNano } from 'ton-core';
 import { Collection } from '../wrappers/Collection';
 import { compile, NetworkProvider } from '@ton-community/blueprint';
 import { buildOnChainMetadata, data } from '../helpers/metadata';
@@ -16,21 +15,22 @@ export async function run(provider: NetworkProvider) {
     itemCode,
   }, authorityCode));
 
-  await authority.sendDeploy(provider.sender(), toNano('0.05'));
-  await provider.waitForDeploy(authority.address, 30);
+  // await authority.sendDeploy(provider.sender());
+  // await provider.waitForDeploy(authority.address, 30);
 
+  const map = 'assets/map.svg';
   const metadata = buildOnChainMetadata(data);
-  await authority.sendDeployCollection(provider.sender(), metadata, 'assets/map.svg');
+  await authority.sendDeployCollection(provider.sender(), metadata, map);
   const collection = provider.open(Collection.createFromConfig({
     authorityAddress: authority.address,
     metadata,
-    map: 'assets/map.svg',
+    map,
     itemCode,
   }, collectionCode));
   await provider.waitForDeploy(collection.address, 30);
 
-  //
-  // await authority.sendDeployItem(provider.sender(), provider.sender().address!, [true, false]);
+  // const content = Array(220).fill(true).map(() => Math.random() < 0.5);
+  // await authority.sendDeployItem(provider.sender(), provider.sender().address!, content);
   // const itemIndex = await authority.getNftIndexByOwnerAddress(provider.sender().address!);
   // const item = Item.createFromConfig({ index: itemIndex, authorityAddress: authority.address }, itemCode);
   // await provider.waitForDeploy(item.address, 30);

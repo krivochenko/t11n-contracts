@@ -30,8 +30,6 @@ export const mapToCell = (file: string): Cell => {
   );
   const countriesNames = Object.keys(countries);
 
-  console.log(countriesNames);
-
   for (let c = 0; c < countriesNames.length; c++) {
     const countryName = countriesNames[c];
     const countryNameBuffer = Buffer.alloc(32);

@@ -40,9 +40,9 @@ export class Authority implements Contract {
     return new Authority(contractAddress(workchain, init), init);
   }
 
-  async sendDeploy(provider: ContractProvider, via: Sender, value: bigint) {
+  async sendDeploy(provider: ContractProvider, via: Sender) {
     await provider.internal(via, {
-      value,
+      value: toNano('0.5'),
       sendMode: SendMode.PAY_GAS_SEPARATELY,
       body: beginCell().endCell(),
     });
@@ -50,7 +50,7 @@ export class Authority implements Contract {
 
   async sendDeployCollection(provider: ContractProvider, via: Sender, metadata: Cell, map: string) {
     await provider.internal(via, {
-      value: toNano('0.5'),
+      value: toNano('1.5'),
       sendMode: SendMode.PAY_GAS_SEPARATELY,
       body: beginCell()
         .storeUint(0x647ed24f, 32)
@@ -63,7 +63,7 @@ export class Authority implements Contract {
 
   async sendDeployItem(provider: ContractProvider, via: Sender, ownerAddress: Address, flags: boolean[]) {
     await provider.internal(via, {
-      value: toNano('0.5'),
+      value: toNano('0.1'),
       sendMode: SendMode.PAY_GAS_SEPARATELY,
       body: beginCell()
         .storeUint(0x76f730a1, 32)
@@ -76,7 +76,7 @@ export class Authority implements Contract {
 
   async sendUpgradeItem(provider: ContractProvider, via: Sender, flags: boolean[]) {
     await provider.internal(via, {
-      value: toNano('0.5'),
+      value: toNano('0.1'),
       sendMode: SendMode.PAY_GAS_SEPARATELY,
       body: beginCell()
         .storeUint(0x46871692, 32)
@@ -86,8 +86,8 @@ export class Authority implements Contract {
     })
   }
 
-  async getLatestCollection(provider: ContractProvider): Promise<{ address: Address, countriesCount: number } | null> {
-    const result = await provider.get('get_latest_collection', []);
+  async getLatestVersion(provider: ContractProvider): Promise<{ address: Address, countriesCount: number } | null> {
+    const result = await provider.get('get_latest_version', []);
     const collectionData = result.stack.readCellOpt();
     if (collectionData) {
       const collectionDataSlice = collectionData.beginParse();

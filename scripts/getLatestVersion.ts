@@ -14,6 +14,6 @@ export async function run(provider: NetworkProvider) {
     itemCode,
   }, authorityCode));
 
-  const content = Array(220).fill(true).map(() => Math.random() < 0.5);
-  await authority.sendUpgradeItem(provider.sender(), content);
+  console.log(authority.address);
+  console.log(await authority.getLatestVersion());
 }

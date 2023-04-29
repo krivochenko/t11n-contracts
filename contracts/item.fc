@@ -1,13 +1,14 @@
 #include "imports/stdlib.fc";
 #include "imports/op-codes.fc";
 #include "imports/helpers.fc";
+#include "imports/map.fc";
 
 global int init?;
 
 global int storage::index;
 global slice storage::authority_address;
 global slice storage::owner_address;
-global cell storage::collection_data;
+global cell storage::version_data;
 global cell storage::content;
 
 () load_data() impure {
@@ -19,12 +20,12 @@ global cell storage::content;
     if (ds.slice_bits() > 0) {
         init? = -1;
         storage::owner_address = ds~load_msg_addr();
-        storage::collection_data = ds~load_ref();
+        storage::version_data = ds~load_ref();
         storage::content = ds~load_ref();
     } else {
         init? = 0;
         storage::owner_address = null_addr();
-        storage::collection_data = null();
+        storage::version_data = null();
         storage::content = null();
     }
 }
@@ -34,8 +35,10 @@ global cell storage::content;
     b = b.store_uint(storage::index, 256);
     b = b.store_slice(storage::authority_address);
     if (init?) {
+        validate_map_content(storage::version_data, storage::content);
+
         b = b.store_slice(storage::owner_address);
-        b = b.store_ref(storage::collection_data);
+        b = b.store_ref(storage::version_data);
         b = b.store_ref(storage::content);
     }
     set_data(b.end_cell());
@@ -69,7 +72,7 @@ global cell storage::content;
         slice item_data = in_msg_body~load_ref().begin_parse();
 
         storage::owner_address = item_data~load_msg_addr();
-        storage::collection_data = item_data~load_ref();
+        storage::version_data = item_data~load_ref();
         storage::content = item_data~load_ref();
         init? = -1;
 
@@ -82,12 +85,11 @@ global cell storage::content;
         if (in_msg_body.slice_refs() == 2) {
             throw_unless(405, equal_slices(storage::authority_address, sender_address));
             storage::content = in_msg_body~load_ref();
-            storage::collection_data = in_msg_body~load_ref();
+            storage::version_data = in_msg_body~load_ref();
         } else {
             throw_unless(405, equal_slices(storage::owner_address, sender_address));
             storage::content = in_msg_body~load_ref();
         }
-
         store_data();
         return ();
     }
@@ -101,7 +103,7 @@ global cell storage::content;
 
 (int, int, slice, slice, cell) get_nft_data() method_id {
     load_data();
-    slice collection_data_slice = storage::collection_data.begin_parse();
+    slice collection_data_slice = storage::version_data.begin_parse();
     slice collection_address = collection_data_slice~load_msg_addr();
     return (init?, storage::index, collection_address, storage::owner_address, storage::content);
 }
