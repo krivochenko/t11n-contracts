@@ -67,7 +67,7 @@ describe('Authority', () => {
     const authorityAddress = authority.address;
     const collection = blockchain.openContract(Collection.createFromConfig({ authorityAddress, collectionData, map: 'tests/files/maps/test-1.svg', itemCode }, collectionCode));
 
-    const itemContent = [true, false, false, true, true];
+    const itemContent = { backgroundColor: '000000', bordersColor: 'ffffff', visitedColor: 'ff0000', unvisitedColor: '00ff00', flags: [true, false, false, true, true] };
     await authority.sendDeployItem(deployer.getSender(), deployer.address, itemContent);
 
     const [nextItemIndex, collectionContent, collectionOwnerAddress] = await collection.getCollectionData();
@@ -101,13 +101,13 @@ describe('Authority', () => {
     const authorityAddress = authority.address;
     const collection = blockchain.openContract(Collection.createFromConfig({ authorityAddress, collectionData, map: 'tests/files/maps/test-1.svg', itemCode }, collectionCode));
 
-    const itemContent = [true, false, false, true, true];
+    const itemContent = { backgroundColor: '000000', bordersColor: 'ffffff', visitedColor: 'ff0000', unvisitedColor: '00ff00', flags: [true, false, false, true, true] };
     await authority.sendDeployItem(deployer.getSender(), deployer.address, itemContent);
 
     const itemIndex = await authority.getNftIndexByOwnerAddress(deployer.address);
     const item = blockchain.openContract(Item.createFromConfig({ authorityAddress, index: itemIndex }, itemCode));
 
-    const newItemContent = [true, true, true, true, true];
+    const newItemContent = { backgroundColor: '000000', bordersColor: 'ffffff', visitedColor: 'ff0000', unvisitedColor: '00ff00', flags: [true, true, true, true, true] };
     await item.sendEditContent(deployer.getSender(), newItemContent);
     const [, , , , newContent] = await item.getNftData();
 
@@ -127,7 +127,8 @@ describe('Authority', () => {
     const authorityAddress = authority.address;
     const v1 = blockchain.openContract(Collection.createFromConfig({ authorityAddress, collectionData, map: 'tests/files/maps/test-1.svg', itemCode }, collectionCode));
 
-    await authority.sendDeployItem(deployer.getSender(), deployer.address, [true, false, false, true, true]);
+    const itemContent = { backgroundColor: '000000', bordersColor: 'ffffff', visitedColor: 'ff0000', unvisitedColor: '00ff00', flags: [true, false, false, true, true] };
+    await authority.sendDeployItem(deployer.getSender(), deployer.address, itemContent);
     const itemIndex = await authority.getNftIndexByOwnerAddress(deployer.address);
     const item = blockchain.openContract(Item.createFromConfig({ authorityAddress, index: itemIndex }, itemCode));
 
@@ -135,13 +136,13 @@ describe('Authority', () => {
     const latestVersion = await authority.getLatestVersion();
     expect(latestVersion!.address).not.toEqualAddress(v1!.address);
 
-    await authority.sendUpgradeItem(deployer.getSender(), [true, true, true, true]);
-    const [, , collectionAddress, , itemContent] = await item.getNftData();
+    await authority.sendUpgradeItem(deployer.getSender(), itemContent);
+    const [, , collectionAddress, , content] = await item.getNftData();
     expect(collectionAddress).toEqualAddress(latestVersion!.address);
-    expect(itemContent).toEqualCell(generateItemContent([true, true, true, true]));
+    expect(content).toEqualCell(generateItemContent(itemContent));
 
     const v2 = blockchain.openContract(Collection.createFromAddress(latestVersion!.address))
-    const nftContentAfterUpgrade = await v2.getNftContent(itemIndex, itemContent);
+    const nftContentAfterUpgrade = await v2.getNftContent(itemIndex, content);
     const metadataDictAfterUpgrade = nftContentAfterUpgrade.beginParse().skip(8).loadDict(Dictionary.Keys.Buffer(32), Dictionary.Values.Cell());
     const parsedMetadataAfterUpgrade = parseMetadata(metadataDictAfterUpgrade, ['name', 'description', 'image_data']);
     expect(parsedMetadataAfterUpgrade).toEqual({

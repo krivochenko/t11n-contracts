@@ -19,6 +19,14 @@ export type AuthorityConfig = {
   itemCode: Cell,
 };
 
+export type ItemContent = {
+  backgroundColor: string,
+  bordersColor: string,
+  visitedColor: string,
+  unvisitedColor: string,
+  flags: boolean[],
+};
+
 export function authorityConfigToCell(config: AuthorityConfig): Cell {
   return beginCell()
     .storeAddress(config.ownerAddress)
@@ -63,7 +71,7 @@ export class Authority implements Contract {
     });
   }
 
-  async sendDeployItem(provider: ContractProvider, via: Sender, ownerAddress: Address, flags: boolean[]) {
+  async sendDeployItem(provider: ContractProvider, via: Sender, ownerAddress: Address, content: ItemContent) {
     await provider.internal(via, {
       value: toNano('1.1'),
       sendMode: SendMode.PAY_GAS_SEPARATELY,
@@ -71,19 +79,19 @@ export class Authority implements Contract {
         .storeUint(0x5c57d048, 32)
         .storeUint(0, 64)
         .storeAddress(ownerAddress)
-        .storeRef(generateItemContent(flags))
+        .storeRef(generateItemContent(content))
         .endCell(),
     });
   }
 
-  async sendUpgradeItem(provider: ContractProvider, via: Sender, flags: boolean[]) {
+  async sendUpgradeItem(provider: ContractProvider, via: Sender, content: ItemContent) {
     await provider.internal(via, {
       value: toNano('0.1'),
       sendMode: SendMode.PAY_GAS_SEPARATELY,
       body: beginCell()
         .storeUint(0x242cc4be, 32)
         .storeUint(0, 64)
-        .storeRef(generateItemContent(flags))
+        .storeRef(generateItemContent(content))
         .endCell(),
     })
   }

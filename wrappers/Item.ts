@@ -10,6 +10,7 @@ import {
   toNano
 } from 'ton-core';
 import { generateItemContent } from './Collection';
+import { ItemContent } from './Authority';
 
 export type ItemConfig = {
   index: bigint,
@@ -37,14 +38,14 @@ export class Item implements Contract {
     return new Item(contractAddress(workchain, init), init);
   }
 
-  async sendEditContent(provider: ContractProvider, via: Sender, flags: boolean[]) {
+  async sendEditContent(provider: ContractProvider, via: Sender, content: ItemContent) {
     await provider.internal(via, {
       value: toNano('0.1'),
       sendMode: SendMode.PAY_GAS_SEPARATELY,
       body: beginCell()
         .storeUint(0x1a0b9d51, 32)
         .storeUint(0, 64)
-        .storeRef(generateItemContent(flags))
+        .storeRef(generateItemContent(content))
         .endCell(),
     });
   }

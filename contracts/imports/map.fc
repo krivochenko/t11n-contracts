@@ -2,14 +2,25 @@
 
 cell generate_svg(cell individual_content, cell map) inline {
     slice individual_content_slice = individual_content.begin_parse();
+
+    slice background_color = individual_content_slice~load_bits(48);
+    slice borders_color = individual_content_slice~load_bits(48);
+    slice visited_color = individual_content_slice~load_bits(48);
+    slice unvisited_color = individual_content_slice~load_bits(48);
+
     tuple parts = empty_tuple();
 
-    parts~push_back("<svg xmlns='http://www.w3.org/2000/svg' fill='#ececec' stroke='#000' stroke-width='0.2' viewBox='0 0 2000 2000'>");
+    parts~push_back("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2000 2000'>");
+    if (~ equal_slices(background_color, "______")) {
+        parts~push_back("<rect width='2000' height='2000' x='0' y='0' fill='#");
+        parts~push_back(background_color);
+        parts~push_back("' />");
+    }
     parts~push_back("<g transform='translate(0 570)'>");
 
     (int country_key, slice country, int country_flag) = map.udict_get_min?(10);
     while (country_flag) {
-        slice fill = individual_content_slice~load_int(1) == true ? "#ff0000" : "#00ff00";
+        slice fill = individual_content_slice~load_int(1) == true ? visited_color : unvisited_color;
         cell country_dict = country~load_ref();
 
         (int path_key, slice path_value, int path_flag) = country_dict.udict_get_min?(10);
@@ -17,10 +28,16 @@ cell generate_svg(cell individual_content, cell map) inline {
             if (path_key > 0) {
                 slice path = path_value~load_ref().begin_parse();
 
-                parts~push_back("<path fill='");
+                parts~push_back("<path fill='#");
                 parts~push_back(fill);
                 parts~push_back("' d='");
                 parts~push_back(path);
+                parts~push_back("' stroke='");
+                if (~ equal_slices(borders_color, "______")) {
+                    parts~push_back(borders_color);
+                } else {
+                    parts~push_back(fill);
+                }
                 parts~push_back("'/>");
             }
             (path_key, path_value, path_flag) = country_dict.udict_get_next?(10, path_key);
@@ -50,5 +67,6 @@ cell get_full_item_content(cell individula_content, cell map) inline {
     int countries_count = version_data_slice~load_uint(10);
 
     slice content_slice = content.begin_parse();
+    content_slice~skip_bits(48 * 4);
     throw_unless(400, countries_count == content_slice.slice_bits());
 }

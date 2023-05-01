@@ -1,5 +1,6 @@
 import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider } from 'ton-core';
 import { mapToCell } from '../helpers/map';
+import { ItemContent } from './Authority';
 
 export type CollectionConfig = {
   authorityAddress: Address,
@@ -8,12 +9,13 @@ export type CollectionConfig = {
   itemCode: Cell,
 };
 
-export const generateItemContent = (flags: boolean[]) => {
-  const content = beginCell();
+export const generateItemContent = (content: ItemContent) => {
+  const { backgroundColor, bordersColor, visitedColor, unvisitedColor, flags } = content;
+  const builder = beginCell().storeStringTail(backgroundColor).storeStringTail(bordersColor).storeStringTail(visitedColor).storeStringTail(unvisitedColor);
   for (const flag of flags) {
-    content.storeBit(flag);
+    builder.storeBit(flag);
   }
-  return content.endCell();
+  return builder.endCell();
 };
 
 export function collectionConfigToCell(config: CollectionConfig): Cell {
