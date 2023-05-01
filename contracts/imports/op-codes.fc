@@ -3,21 +3,20 @@ int op::ownership_assigned() asm "0x05138d91 PUSHINT";
 int op::excesses() asm "0xd53276db PUSHINT";
 int op::get_static_data() asm "0x2fcb26a2 PUSHINT";
 int op::report_static_data() asm "0x8b771735 PUSHINT";
-int op::get_royalty_params() asm "0x693d3950 PUSHINT";
-int op::report_royalty_params() asm "0xa8cb00ad PUSHINT";
-
-;; NFTEditable
 int op::edit_content() asm "0x1a0b9d51 PUSHINT";
-int op::transfer_editorship() asm "0x1c04412a PUSHINT";
-int op::editorship_assigned() asm "0x511a4463 PUSHINT";
 
+int op::request_owner() asm "0xd0c3bfea PUSHINT";
+int op::owner_info() asm "0x0dd607e3 PUSHINT";
+int op::prove_ownership() asm "0x04ded148 PUSHINT";
+int op::ownership_proof() asm "0x0524c7ae PUSHINT";
+int op::ownership_proof_bounced() asm "0xc18e86d2 PUSHINT";
+int op::destroy() asm "0x1f04537a PUSHINT";
+int op::revoke() asm "0x6f89f5e3 PUSHINT";
+int op::take_excess() asm "0xd136d3b3 PUSHINT";
 
-const op::collection::deploy = "op::collection::deploy"c;
-
-const op::authority::deploy_collection = "op::authority::deploy_collection"c;
-const op::authority::release_collection = "op::authority::release_collection"c;
-const op::authority::deploy_item = "op::authority::deploy_item"c;
-const op::authority::upgrade_item = "op::authority::upgrade_item"c;
-
-
-
+int op::deploy_version() asm "0x5974ad85 PUSHINT";
+int op::release_version() asm "0x8defa197 PUSHINT";
+int op::deploy_item() asm "0x5c57d048 PUSHINT";
+int op::upgrade_item() asm "0x242cc4be PUSHINT";
+int op::set_item_price() asm "0x18e00496 PUSHINT";
+int op::withdraw() asm "0x46ed2e94 PUSHINT";

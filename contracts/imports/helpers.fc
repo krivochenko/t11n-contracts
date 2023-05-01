@@ -4,6 +4,9 @@ int min_tons_for_storage() asm "50000000 PUSHINT";
 int workchain() asm "0 PUSHINT";
 slice null_addr() asm "b{00} PUSHSLICE";
 
+int flag::regular() asm "0x10 PUSHINT";
+int flag::bounce() asm "0x8 PUSHINT";
+
 () force_chain(slice addr) impure {
     (int wc, _) = parse_std_addr(addr);
     throw_unless(333, wc == workchain());
@@ -27,9 +30,9 @@ slice calculate_address(cell state_init) {
             .begin_parse();
 }
 
-() send_message(slice to_address, int amount, int op, int query_id, builder msg_body, int send_mode) impure inline {
+() send_message(int flag, slice to_address, int amount, int op, int query_id, builder msg_body, int send_mode) impure inline {
     var msg = begin_cell()
-            .store_uint(0x10, 6)
+            .store_uint(flag, 6)
             .store_slice(to_address)
             .store_coins(amount)
             .store_uint(0, 1 + 4 + 4 + 64 + 32 + 1 + 1)

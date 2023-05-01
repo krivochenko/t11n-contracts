@@ -14,6 +14,7 @@ import { mapToCell } from '../helpers/map';
 
 export type AuthorityConfig = {
   ownerAddress: Address,
+  itemPrice: bigint,
   collectionCode: Cell,
   itemCode: Cell,
 };
@@ -21,6 +22,7 @@ export type AuthorityConfig = {
 export function authorityConfigToCell(config: AuthorityConfig): Cell {
   return beginCell()
     .storeAddress(config.ownerAddress)
+    .storeCoins(config.itemPrice)
     .storeRef(config.collectionCode)
     .storeRef(config.itemCode)
     .endCell();
@@ -48,12 +50,12 @@ export class Authority implements Contract {
     });
   }
 
-  async sendDeployCollection(provider: ContractProvider, via: Sender, metadata: Cell, map: string) {
+  async sendDeployVersion(provider: ContractProvider, via: Sender, metadata: Cell, map: string) {
     await provider.internal(via, {
       value: toNano('1.5'),
       sendMode: SendMode.PAY_GAS_SEPARATELY,
       body: beginCell()
-        .storeUint(0x647ed24f, 32)
+        .storeUint(0x5974ad85, 32)
         .storeUint(0, 64)
         .storeRef(metadata)
         .storeRef(mapToCell(map))
@@ -63,10 +65,10 @@ export class Authority implements Contract {
 
   async sendDeployItem(provider: ContractProvider, via: Sender, ownerAddress: Address, flags: boolean[]) {
     await provider.internal(via, {
-      value: toNano('0.1'),
+      value: toNano('1.1'),
       sendMode: SendMode.PAY_GAS_SEPARATELY,
       body: beginCell()
-        .storeUint(0x76f730a1, 32)
+        .storeUint(0x5c57d048, 32)
         .storeUint(0, 64)
         .storeAddress(ownerAddress)
         .storeRef(generateItemContent(flags))
@@ -79,11 +81,35 @@ export class Authority implements Contract {
       value: toNano('0.1'),
       sendMode: SendMode.PAY_GAS_SEPARATELY,
       body: beginCell()
-        .storeUint(0x46871692, 32)
+        .storeUint(0x242cc4be, 32)
         .storeUint(0, 64)
         .storeRef(generateItemContent(flags))
         .endCell(),
     })
+  }
+
+  async sendSetItemPrice(provider: ContractProvider, via: Sender, itemPrice: bigint) {
+    await provider.internal(via, {
+      value: toNano('0.1'),
+      sendMode: SendMode.PAY_GAS_SEPARATELY,
+      body: beginCell()
+        .storeUint(0x18e00496, 32)
+        .storeUint(0, 64)
+        .storeCoins(itemPrice)
+        .endCell(),
+    });
+
+  }
+
+  async sendWithdraw(provider: ContractProvider, via: Sender) {
+    await provider.internal(via, {
+      value: toNano('0.1'),
+      sendMode: SendMode.PAY_GAS_SEPARATELY,
+      body: beginCell()
+        .storeUint(0x46ed2e94, 32)
+        .storeUint(0, 64)
+        .endCell(),
+    });
   }
 
   async getLatestVersion(provider: ContractProvider): Promise<{ address: Address, countriesCount: number } | null> {
@@ -101,6 +127,11 @@ export class Authority implements Contract {
 
   async getNftIndexByOwnerAddress(provider: ContractProvider, owner: Address): Promise<bigint> {
     const result = await provider.get('get_nft_index_by_owner_address', [{ type: 'slice', cell: beginCell().storeAddress(owner).endCell() }]);
+    return result.stack.readBigNumber();
+  }
+
+  async getItemPrice(provider: ContractProvider): Promise<bigint> {
+    const result = await provider.get('get_item_price', []);
     return result.stack.readBigNumber();
   }
 }

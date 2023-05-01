@@ -3,7 +3,7 @@ import { mapToCell } from '../helpers/map';
 
 export type CollectionConfig = {
   authorityAddress: Address,
-  metadata: Cell,
+  collectionData: Cell,
   map: string,
   itemCode: Cell,
 };
@@ -19,7 +19,7 @@ export const generateItemContent = (flags: boolean[]) => {
 export function collectionConfigToCell(config: CollectionConfig): Cell {
   return beginCell()
     .storeAddress(config.authorityAddress)
-    .storeRef(config.metadata)
+    .storeRef(config.collectionData)
     .storeRef(mapToCell(config.map))
     .storeRef(config.itemCode)
     .endCell();

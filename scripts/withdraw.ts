@@ -16,6 +16,5 @@ export async function run(provider: NetworkProvider) {
     itemCode,
   }, authorityCode));
 
-  console.log(authority.address);
-  console.log(await authority.getLatestVersion());
+  await authority.sendWithdraw(provider.sender());
 }

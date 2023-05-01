@@ -45,9 +45,9 @@ global cell storage::item_code;
 
     throw_unless(401, equal_slices(sender_address, storage::authority_address));
 
-    if (op == op::collection::deploy) {
+    if (op == op::deploy_version()) {
         raw_reserve(min_tons_for_storage(), 0);
-        send_message(storage::authority_address, 0, op::authority::release_collection, query_id, begin_cell().store_slice(my_address()), 128);
+        send_message(flag::regular(), storage::authority_address, 0, op::release_version(), query_id, begin_cell().store_slice(my_address()), 128);
 
         return ();
     }
