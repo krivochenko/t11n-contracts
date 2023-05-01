@@ -25,26 +25,24 @@ export const mapToCell = (file: string): Cell => {
   }, {});
 
   const dict = Dictionary.empty(
-    Dictionary.Keys.Buffer(32),
+    Dictionary.Keys.Uint(10),
     Dictionary.Values.Dictionary(Dictionary.Keys.Uint(10), Dictionary.Values.Cell()),
   );
   const countriesNames = Object.keys(countries);
 
   for (let c = 0; c < countriesNames.length; c++) {
     const countryName = countriesNames[c];
-    const countryNameBuffer = Buffer.alloc(32);
-    countryNameBuffer.write(countriesNames[c]);
 
     const countryDict = Dictionary.empty(Dictionary.Keys.Uint(10), Dictionary.Values.Cell());
+    countryDict.set(0, beginCell().storeStringTail(countryName).endCell());
     const countryPaths = countries[countryName];
 
     for (let i = 0; i < countryPaths.length; i++) {
       const buffer = Buffer.from(countryPaths[i], 'utf8');
-      const builder = beginCell();
-      countryDict.set(i, snake(buffer, builder))
+      countryDict.set(i + 1, snake(buffer, beginCell()))
     }
 
-    dict.set(countryNameBuffer, countryDict);
+    dict.set(c, countryDict);
   }
 
   return beginCell().storeDictDirect(dict).endCell();

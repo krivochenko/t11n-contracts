@@ -73,7 +73,7 @@ global cell storage::latest_version;
         cell msg_body = begin_cell().store_uint(op::deploy_version(), 32).store_uint(query_id, 64).end_cell();
         slice collection_address = send_deploy_message(collection_state_init, 0, msg_body, 64);
 
-        storage::candidate_version = begin_cell().store_slice(collection_address).store_uint(get_dict_size(map, 256), 10).end_cell();
+        storage::candidate_version = begin_cell().store_slice(collection_address).store_uint(get_dict_size(map, 10), 10).end_cell();
 
         save_data();
         return ();

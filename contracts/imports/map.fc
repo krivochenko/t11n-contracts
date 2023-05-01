@@ -7,24 +7,25 @@ cell generate_svg(cell individual_content, cell map) inline {
     parts~push_back("<svg xmlns='http://www.w3.org/2000/svg' fill='#ececec' stroke='#000' stroke-width='0.2' viewBox='0 0 2000 2000'>");
     parts~push_back("<g transform='translate(0 570)'>");
 
-    (int country_key, slice country, int country_flag) = map.udict_get_min?(256);
+    (int country_key, slice country, int country_flag) = map.udict_get_min?(10);
     while (country_flag) {
         slice fill = individual_content_slice~load_int(1) == true ? "#ff0000" : "#00ff00";
         cell country_dict = country~load_ref();
 
         (int path_key, slice path_value, int path_flag) = country_dict.udict_get_min?(10);
         while (path_flag) {
-            slice path = path_value~load_ref().begin_parse();
+            if (path_key > 0) {
+                slice path = path_value~load_ref().begin_parse();
 
-            parts~push_back("<path fill='");
-            parts~push_back(fill);
-            parts~push_back("' d='");
-            parts~push_back(path);
-            parts~push_back("'/>");
-
+                parts~push_back("<path fill='");
+                parts~push_back(fill);
+                parts~push_back("' d='");
+                parts~push_back(path);
+                parts~push_back("'/>");
+            }
             (path_key, path_value, path_flag) = country_dict.udict_get_next?(10, path_key);
         }
-        (country_key, country, country_flag) = map.udict_get_next?(256, country_key);
+        (country_key, country, country_flag) = map.udict_get_next?(10, country_key);
     }
 
     parts~push_back("</g></svg>");
