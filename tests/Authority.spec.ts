@@ -7,6 +7,7 @@ import { Item } from '../wrappers/Item';
 import { Authority } from '../wrappers/Authority';
 import { buildOnChainMetadata, data, parseMetadata } from '../helpers/metadata';
 import { readFileSync } from 'fs';
+import { mapToCell } from '../helpers/map';
 
 describe('Authority', () => {
   const collectionData = buildOnChainMetadata(data);
@@ -52,22 +53,49 @@ describe('Authority', () => {
   });
 
   it('should deploy version and return correct data about it', async () => {
-    await authority.sendDeployVersion(deployer.getSender(), collectionData, 'tests/files/maps/test-1.svg');
-    const authorityAddress = authority.address;
-    const collection = blockchain.openContract(Collection.createFromConfig({ authorityAddress, collectionData, map: 'tests/files/maps/test-1.svg', itemCode }, collectionCode));
+    const { all, batches, countriesCount } = mapToCell('tests/files/maps/test-1.svg', 2);
+    await authority.sendDeployVersion(deployer.getSender(), collectionData, all.hash(), countriesCount);
 
-    const latestCollection = await authority.getLatestVersion();
-    expect(latestCollection).not.toBeNull();
-    expect(latestCollection!.address).toEqualAddress(collection.address)
-    expect(latestCollection!.countriesCount).toBe(5);
+    const authorityAddress = authority.address;
+    const collectionConfig = { authorityAddress, ownerAddress: deployer.address, collectionData, mapHash: all.hash(), itemCode };
+    const collection = blockchain.openContract(Collection.createFromConfig(collectionConfig, collectionCode));
+
+    for (const batch of batches) {
+      await collection.sendFillVersion(deployer.getSender(), batch);
+    }
+    const map = await collection.getMap();
+    expect(map).toEqualCell(all);
+
+    await collection.sendReleaseVersion(deployer.getSender());
+
+    const latestVersion = await authority.getLatestVersion();
+    expect(latestVersion).not.toBeNull();
+    expect(latestVersion!.address).toEqualAddress(collection.address)
+    expect(latestVersion!.countriesCount).toBe(5);
   });
 
   it('should deploy item and return correct data', async () => {
-    await authority.sendDeployVersion(deployer.getSender(), collectionData, 'tests/files/maps/test-1.svg');
-    const authorityAddress = authority.address;
-    const collection = blockchain.openContract(Collection.createFromConfig({ authorityAddress, collectionData, map: 'tests/files/maps/test-1.svg', itemCode }, collectionCode));
+    const { all, batches, countriesCount } = mapToCell('tests/files/maps/test-1.svg', 2);
+    await authority.sendDeployVersion(deployer.getSender(), collectionData, all.hash(), countriesCount);
 
-    const itemContent = { backgroundColor: '000000', bordersColor: 'ffffff', visitedColor: 'ff0000', unvisitedColor: '00ff00', flags: [true, false, false, true, true] };
+    const authorityAddress = authority.address;
+    const collectionConfig = { authorityAddress, ownerAddress: deployer.address, collectionData, mapHash: all.hash(), itemCode };
+    const collection = blockchain.openContract(Collection.createFromConfig(collectionConfig, collectionCode));
+
+    for (const batch of batches) {
+      await collection.sendFillVersion(deployer.getSender(), batch);
+    }
+    await collection.sendReleaseVersion(deployer.getSender());
+
+    const itemContent = {
+      colorSchema: {
+        backgroundColor: { r: 0, g: 0, b: 0, a: 100 },
+        bordersColor: { r: 255, g: 255, b: 255, a: 100 },
+        visitedColor: { r: 255, g: 0, b: 0, a: 100 },
+        unvisitedColor: { r: 0, g: 255, b: 0, a: 100 },
+      },
+      flags: [true, false, false, true, true],
+    };
     await authority.sendDeployItem(deployer.getSender(), deployer.address, itemContent);
 
     const [nextItemIndex, collectionContent, collectionOwnerAddress] = await collection.getCollectionData();
@@ -76,12 +104,11 @@ describe('Authority', () => {
     expect(collectionContent).toEqualCell(buildOnChainMetadata(data));
     expect(collectionOwnerAddress).toEqualAddress(authority.address);
 
-    const itemIndex = await authority.getNftIndexByOwnerAddress(deployer.address);
-    const item = blockchain.openContract(Item.createFromConfig({ authorityAddress, index: itemIndex }, itemCode));
+    const itemAddress = await authority.getItemAddressByOwnerAddress(deployer.address);
+    const item = blockchain.openContract(Item.createFromAddress(itemAddress));
     const [init, index, collectionAddress, itemOwnerAddress, content] = await item.getNftData();
 
     expect(init).toBe(true);
-    expect(index).toBe(itemIndex);
     expect(collectionAddress).toEqualAddress(collection.address);
     expect(itemOwnerAddress).toEqualAddress(deployer.address);
     expect(content).toEqualCell(generateItemContent(itemContent));
@@ -90,64 +117,113 @@ describe('Authority', () => {
     const metadataDict = nftContent.beginParse().skip(8).loadDict(Dictionary.Keys.Buffer(32), Dictionary.Values.Cell());
     const parsedMetadata = parseMetadata(metadataDict, ['name', 'description', 'image_data']);
     expect(parsedMetadata).toEqual({
-      name: 'Name',
-      description: 'Description',
+      name: '3 countries visited',
+      description: 'For mint or update your map, please open @t11n_bot Telegram bot',
       image_data: readFileSync('tests/files/results/result-1.svg').toString('utf-8'),
     });
   });
 
   it('should edit item', async () => {
-    await authority.sendDeployVersion(deployer.getSender(), collectionData, 'tests/files/maps/test-1.svg');
-    const authorityAddress = authority.address;
-    const collection = blockchain.openContract(Collection.createFromConfig({ authorityAddress, collectionData, map: 'tests/files/maps/test-1.svg', itemCode }, collectionCode));
+    const { all, batches, countriesCount } = mapToCell('tests/files/maps/test-1.svg', 2);
+    await authority.sendDeployVersion(deployer.getSender(), collectionData, all.hash(), countriesCount);
 
-    const itemContent = { backgroundColor: '000000', bordersColor: 'ffffff', visitedColor: 'ff0000', unvisitedColor: '00ff00', flags: [true, false, false, true, true] };
+    const authorityAddress = authority.address;
+    const collectionConfig = { authorityAddress, ownerAddress: deployer.address, collectionData, mapHash: all.hash(), itemCode };
+    const collection = blockchain.openContract(Collection.createFromConfig(collectionConfig, collectionCode));
+
+    for (const batch of batches) {
+      await collection.sendFillVersion(deployer.getSender(), batch);
+    }
+    await collection.sendReleaseVersion(deployer.getSender());
+
+    const itemContent = {
+      colorSchema: {
+        backgroundColor: { r: 0, g: 0, b: 0, a: 100 },
+        bordersColor: { r: 255, g: 255, b: 255, a: 100 },
+        visitedColor: { r: 255, g: 0, b: 0, a: 100 },
+        unvisitedColor: { r: 0, g: 255, b: 0, a: 100 },
+      },
+      flags: [true, false, false, true, true],
+    };
     await authority.sendDeployItem(deployer.getSender(), deployer.address, itemContent);
 
-    const itemIndex = await authority.getNftIndexByOwnerAddress(deployer.address);
-    const item = blockchain.openContract(Item.createFromConfig({ authorityAddress, index: itemIndex }, itemCode));
+    const itemAddress = await authority.getItemAddressByOwnerAddress(deployer.address);
+    const item = blockchain.openContract(Item.createFromAddress(itemAddress));
 
-    const newItemContent = { backgroundColor: '000000', bordersColor: 'ffffff', visitedColor: 'ff0000', unvisitedColor: '00ff00', flags: [true, true, true, true, true] };
+    const newItemContent = {
+      colorSchema: {
+        backgroundColor: { r: 0, g: 0, b: 0, a: 100 },
+        bordersColor: { r: 255, g: 255, b: 255, a: 100 },
+        visitedColor: { r: 255, g: 0, b: 0, a: 100 },
+        unvisitedColor: { r: 0, g: 255, b: 0, a: 100 },
+      },
+      flags: [true, true, true, true, true],
+    };
     await item.sendEditContent(deployer.getSender(), newItemContent);
-    const [, , , , newContent] = await item.getNftData();
+    const [, index, , , newContent] = await item.getNftData();
 
     expect(newContent).toEqualCell(generateItemContent(newItemContent));
-    const newNftContent = await collection.getNftContent(itemIndex, newContent);
+    const newNftContent = await collection.getNftContent(index, newContent);
     const newMetadataDict = newNftContent.beginParse().skip(8).loadDict(Dictionary.Keys.Buffer(32), Dictionary.Values.Cell());
     const newParsedMetadata = parseMetadata(newMetadataDict, ['name', 'description', 'image_data']);
     expect(newParsedMetadata).toEqual({
-      name: 'Name',
-      description: 'Description',
+      name: '5 countries visited',
+      description: 'For mint or update your map, please open @t11n_bot Telegram bot',
       image_data: readFileSync('tests/files/results/result-2.svg').toString('utf-8'),
     });
   });
 
   it('should upgrade item', async () => {
-    await authority.sendDeployVersion(deployer.getSender(), collectionData, 'tests/files/maps/test-1.svg');
+    const { all: v1All, batches: v1Batches, countriesCount: v1CountriesCount } = mapToCell('tests/files/maps/test-1.svg', 2);
+    await authority.sendDeployVersion(deployer.getSender(), collectionData, v1All.hash(), v1CountriesCount);
+
     const authorityAddress = authority.address;
-    const v1 = blockchain.openContract(Collection.createFromConfig({ authorityAddress, collectionData, map: 'tests/files/maps/test-1.svg', itemCode }, collectionCode));
+    const v1Config = { authorityAddress, ownerAddress: deployer.address, collectionData, mapHash: v1All.hash(), itemCode };
+    const v1 = blockchain.openContract(Collection.createFromConfig(v1Config, collectionCode));
 
-    const itemContent = { backgroundColor: '000000', bordersColor: 'ffffff', visitedColor: 'ff0000', unvisitedColor: '00ff00', flags: [true, false, false, true, true] };
+    for (const batch of v1Batches) {
+      await v1.sendFillVersion(deployer.getSender(), batch);
+    }
+    await v1.sendReleaseVersion(deployer.getSender());
+
+    const itemContent = {
+      colorSchema: {
+        backgroundColor: { r: 0, g: 0, b: 0, a: 100 },
+        bordersColor: { r: 255, g: 255, b: 255, a: 100 },
+        visitedColor: { r: 255, g: 0, b: 0, a: 100 },
+        unvisitedColor: { r: 0, g: 255, b: 0, a: 100 },
+      },
+      flags: [true, false, false, true, true],
+    };
     await authority.sendDeployItem(deployer.getSender(), deployer.address, itemContent);
-    const itemIndex = await authority.getNftIndexByOwnerAddress(deployer.address);
-    const item = blockchain.openContract(Item.createFromConfig({ authorityAddress, index: itemIndex }, itemCode));
 
-    await authority.sendDeployVersion(deployer.getSender(), collectionData, 'tests/files/maps/test-2.svg');
+    const itemAddress = await authority.getItemAddressByOwnerAddress(deployer.address);
+    const item = blockchain.openContract(Item.createFromAddress(itemAddress));
+
+    const { all: v2All, batches: v2Batches, countriesCount: v2CountriesCount } = mapToCell('tests/files/maps/test-2.svg', 2);
+    const v2Config = { authorityAddress, ownerAddress: deployer.address, collectionData, mapHash: v2All.hash(), itemCode };
+    const v2 = blockchain.openContract(Collection.createFromConfig(v2Config, collectionCode));
+
+    await authority.sendDeployVersion(deployer.getSender(), collectionData, v2All.hash(), v2CountriesCount);
+    for (const batch of v2Batches) {
+      await v2.sendFillVersion(deployer.getSender(), batch);
+    }
+    await v2.sendReleaseVersion(deployer.getSender());
+
     const latestVersion = await authority.getLatestVersion();
-    expect(latestVersion!.address).not.toEqualAddress(v1!.address);
+    expect(latestVersion!.address).toEqualAddress(v2.address);
 
     await authority.sendUpgradeItem(deployer.getSender(), itemContent);
-    const [, , collectionAddress, , content] = await item.getNftData();
+    const [, index, collectionAddress, , content] = await item.getNftData();
     expect(collectionAddress).toEqualAddress(latestVersion!.address);
     expect(content).toEqualCell(generateItemContent(itemContent));
 
-    const v2 = blockchain.openContract(Collection.createFromAddress(latestVersion!.address))
-    const nftContentAfterUpgrade = await v2.getNftContent(itemIndex, content);
+    const nftContentAfterUpgrade = await v2.getNftContent(index, content);
     const metadataDictAfterUpgrade = nftContentAfterUpgrade.beginParse().skip(8).loadDict(Dictionary.Keys.Buffer(32), Dictionary.Values.Cell());
     const parsedMetadataAfterUpgrade = parseMetadata(metadataDictAfterUpgrade, ['name', 'description', 'image_data']);
     expect(parsedMetadataAfterUpgrade).toEqual({
-      name: 'Name',
-      description: 'Description',
+      name: '3 countries visited',
+      description: 'For mint or update your map, please open @t11n_bot Telegram bot',
       image_data: readFileSync('tests/files/results/result-3.svg').toString('utf-8'),
     });
   });

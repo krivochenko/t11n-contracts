@@ -1,26 +1,80 @@
 #include "text.fc";
 
+slice int_to_string(int n) {
+    builder string = begin_cell();
+    tuple chars = null();
+    do {
+        int r = n~divmod(10);
+        chars = cons(r + 48, chars);
+    } until (n == 0);
+    do {
+        int char = chars~list_next();
+        string~store_uint(char, 8);
+    } until (null?(chars));
+    return string.end_cell().begin_parse();
+}
+
+(slice, (slice)) load_color(slice s) {
+    int r = s~load_uint(8);
+    int g = s~load_uint(8);
+    int b = s~load_uint(8);
+
+    builder result = begin_cell()
+            .store_slice("rgb(")
+            .store_slice(int_to_string(r))
+            .store_slice(", ")
+            .store_slice(int_to_string(g))
+            .store_slice(", ")
+            .store_slice(int_to_string(b))
+            .store_slice(")");
+
+    return (s, (result.end_cell().begin_parse()));
+}
+
+(slice, (slice)) load_opacity(slice s) {
+    int a = s~load_uint(7);
+    builder result = begin_cell();
+    if (a < 100) {
+        result = result.store_slice("0.").store_slice(int_to_string(a));
+    } else {
+        result = result.store_slice("1");
+    }
+    return (s, (result.end_cell().begin_parse()));
+}
+
+(slice, (slice)) load_fill_attributes(slice s) {
+    slice fill = s~load_color();
+    slice opacity = s~load_opacity();
+
+    return (s, (begin_cell().store_slice("fill='").store_slice(fill).store_slice("' fill-opacity='").store_slice(opacity).store_slice("'").end_cell().begin_parse()));
+}
+
+(slice, (slice)) load_stroke_attributes(slice s) {
+    slice stroke = s~load_color();
+    slice opacity = s~load_opacity();
+
+    return (s, (begin_cell().store_slice("stroke='").store_slice(stroke).store_slice("' stroke-opacity='").store_slice(opacity).store_slice("'").end_cell().begin_parse()));
+}
+
 cell generate_svg(cell individual_content, cell map) inline {
     slice individual_content_slice = individual_content.begin_parse();
 
-    slice background_color = individual_content_slice~load_bits(48);
-    slice borders_color = individual_content_slice~load_bits(48);
-    slice visited_color = individual_content_slice~load_bits(48);
-    slice unvisited_color = individual_content_slice~load_bits(48);
+    slice background = individual_content_slice~load_fill_attributes();
+    slice borders = individual_content_slice~load_stroke_attributes();
+    slice visited = individual_content_slice~load_fill_attributes();
+    slice unvisited = individual_content_slice~load_fill_attributes();
 
     tuple parts = empty_tuple();
 
     parts~push_back("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2000 2000'>");
-    if (~ equal_slices(background_color, "______")) {
-        parts~push_back("<rect width='2000' height='2000' x='0' y='0' fill='#");
-        parts~push_back(background_color);
-        parts~push_back("' />");
-    }
+    parts~push_back("<rect width='2000' height='2000' x='0' y='0' ");
+    parts~push_back(background);
+    parts~push_back(" />");
     parts~push_back("<g transform='translate(0 570)'>");
 
     (int country_key, slice country, int country_flag) = map.udict_get_min?(10);
     while (country_flag) {
-        slice fill = individual_content_slice~load_int(1) == true ? visited_color : unvisited_color;
+        slice fill = individual_content_slice~load_int(1) == true ? visited : unvisited;
         cell country_dict = country~load_ref();
 
         (int path_key, slice path_value, int path_flag) = country_dict.udict_get_min?(10);
@@ -28,17 +82,13 @@ cell generate_svg(cell individual_content, cell map) inline {
             if (path_key > 0) {
                 slice path = path_value~load_ref().begin_parse();
 
-                parts~push_back("<path fill='#");
+                parts~push_back("<path ");
                 parts~push_back(fill);
-                parts~push_back("' d='");
+                parts~push_back(" ");
+                parts~push_back(borders);
+                parts~push_back(" d='");
                 parts~push_back(path);
-                parts~push_back("' stroke='");
-                if (~ equal_slices(borders_color, "______")) {
-                    parts~push_back(borders_color);
-                } else {
-                    parts~push_back(fill);
-                }
-                parts~push_back("'/>");
+                parts~push_back("' />");
             }
             (path_key, path_value, path_flag) = country_dict.udict_get_next?(10, path_key);
         }
@@ -50,12 +100,44 @@ cell generate_svg(cell individual_content, cell map) inline {
     return concat_to_chunk(parts);
 }
 
+int get_visited_countries_count (cell individula_content) {
+    slice individula_content_slice = individula_content.begin_parse();
+    individula_content_slice~skip_bits(31 * 4);
+
+    int visited_countries_count = 0;
+    repeat(individula_content_slice.slice_bits()) {
+        if (individula_content_slice~load_int(1) == true) {
+            visited_countries_count = visited_countries_count + 1;
+        }
+    }
+    return visited_countries_count;
+}
+
+cell get_item_name(cell individula_content) {
+    int visited_countries_count = get_visited_countries_count(individula_content);
+    return begin_cell()
+            .store_uint(0, 8)
+            .store_slice(int_to_string(visited_countries_count))
+            .store_slice(visited_countries_count == 1 ? " country" : " countries")
+            .store_slice(" visited")
+            .end_cell();
+}
+
+cell get_item_desctiption() {
+    return begin_cell()
+            .store_uint(0, 8)
+            .store_slice("For mint or update your map, please open @t11n_bot Telegram bot")
+            .end_cell();
+}
+
 cell get_full_item_content(cell individula_content, cell map) inline {
     cell svg = generate_svg(individula_content, map);
+    cell name = get_item_name(individula_content);
+    cell description = get_item_desctiption();
 
     cell content = new_dict();
-    content~udict_set_ref(256, "name"H, begin_cell().store_uint(0, 8).store_slice("Name").end_cell());
-    content~udict_set_ref(256, "description"H, begin_cell().store_uint(0, 8).store_slice("Description").end_cell());
+    content~udict_set_ref(256, "name"H, name);
+    content~udict_set_ref(256, "description"H, description);
     content~udict_set_ref(256, "image_data"H, svg);
 
     return begin_cell().store_uint(0, 8).store_dict(content).end_cell();
@@ -67,6 +149,6 @@ cell get_full_item_content(cell individula_content, cell map) inline {
     int countries_count = version_data_slice~load_uint(10);
 
     slice content_slice = content.begin_parse();
-    content_slice~skip_bits(48 * 4);
+    content_slice~skip_bits(31 * 4);
     throw_unless(400, countries_count == content_slice.slice_bits());
 }

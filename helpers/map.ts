@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 import { beginCell, Cell, Dictionary } from 'ton-core';
 import { snake } from './metadata';
 
-export const mapToCell = (file: string): Cell => {
+export const mapToCell = (file: string, batchSize: number): { all: Cell, batches: Cell[], countriesCount: number } => {
   const imageData = readFileSync(file).toString('utf-8');
   const root = parse(imageData);
   const svg = root.children;
@@ -24,26 +24,36 @@ export const mapToCell = (file: string): Cell => {
     return result;
   }, {});
 
-  const dict = Dictionary.empty(
-    Dictionary.Keys.Uint(10),
-    Dictionary.Values.Dictionary(Dictionary.Keys.Uint(10), Dictionary.Values.Cell()),
-  );
   const countriesNames = Object.keys(countries);
+  const batchesCount = Math.ceil(countriesNames.length / batchSize);
 
-  for (let c = 0; c < countriesNames.length; c++) {
-    const countryName = countriesNames[c];
+  const batches: Cell[] = [];
+  const all = Dictionary.empty(Dictionary.Keys.Uint(10), Dictionary.Values.Dictionary(Dictionary.Keys.Uint(10), Dictionary.Values.Cell()));
 
-    const countryDict = Dictionary.empty(Dictionary.Keys.Uint(10), Dictionary.Values.Cell());
-    countryDict.set(0, beginCell().storeStringTail(countryName).endCell());
-    const countryPaths = countries[countryName];
+  for (let b = 0; b < batchesCount; b++) {
+    const dict = Dictionary.empty(Dictionary.Keys.Uint(10), Dictionary.Values.Dictionary(Dictionary.Keys.Uint(10), Dictionary.Values.Cell()));
+    const countriesNameBatch = countriesNames.slice(b * batchSize, (b + 1) * batchSize);
 
-    for (let i = 0; i < countryPaths.length; i++) {
-      const buffer = Buffer.from(countryPaths[i], 'utf8');
-      countryDict.set(i + 1, snake(buffer, beginCell()))
+    for (let c = 0; c < countriesNameBatch.length; c++) {
+      const countryName = countriesNameBatch[c];
+      const countryDict = Dictionary.empty(Dictionary.Keys.Uint(10), Dictionary.Values.Cell());
+      countryDict.set(0, beginCell().storeStringTail(countryName).endCell());
+      const countryPaths = countries[countryName];
+
+      for (let i = 0; i < countryPaths.length; i++) {
+        const buffer = Buffer.from(countryPaths[i], 'utf8');
+        countryDict.set(i + 1, snake(buffer, beginCell()))
+      }
+      dict.set(c, countryDict);
+      all.set(b * batchSize + c, countryDict);
     }
 
-    dict.set(c, countryDict);
+    batches.push(beginCell().storeDictDirect(dict).endCell());
   }
 
-  return beginCell().storeDictDirect(dict).endCell();
+  return {
+    all: beginCell().storeDictDirect(all).endCell(),
+    batches,
+    countriesCount: countriesNames.length,
+  };
 }

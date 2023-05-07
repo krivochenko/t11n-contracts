@@ -10,7 +10,6 @@ import {
   toNano
 } from 'ton-core';
 import { generateItemContent } from './Collection';
-import { mapToCell } from '../helpers/map';
 
 export type AuthorityConfig = {
   ownerAddress: Address,
@@ -19,12 +18,23 @@ export type AuthorityConfig = {
   itemCode: Cell,
 };
 
+export type Color = {
+  r: number,
+  g: number,
+  b: number,
+  a: number,
+}
+
+export type ColorSchema = {
+  backgroundColor: Color,
+  bordersColor: Color,
+  visitedColor: Color,
+  unvisitedColor: Color,
+};
+
 export type ItemContent = {
-  backgroundColor: string,
-  bordersColor: string,
-  visitedColor: string,
-  unvisitedColor: string,
   flags: boolean[],
+  colorSchema: ColorSchema,
 };
 
 export function authorityConfigToCell(config: AuthorityConfig): Cell {
@@ -58,15 +68,16 @@ export class Authority implements Contract {
     });
   }
 
-  async sendDeployVersion(provider: ContractProvider, via: Sender, metadata: Cell, map: string) {
+  async sendDeployVersion(provider: ContractProvider, via: Sender, metadata: Cell, mapHash: Buffer, countriesCount: number) {
     await provider.internal(via, {
       value: toNano('1.5'),
       sendMode: SendMode.PAY_GAS_SEPARATELY,
       body: beginCell()
         .storeUint(0x5974ad85, 32)
         .storeUint(0, 64)
+        .storeBuffer(mapHash)
+        .storeUint(countriesCount, 10)
         .storeRef(metadata)
-        .storeRef(mapToCell(map))
         .endCell(),
     });
   }
@@ -133,13 +144,18 @@ export class Authority implements Contract {
     return null;
   }
 
-  async getNftIndexByOwnerAddress(provider: ContractProvider, owner: Address): Promise<bigint> {
-    const result = await provider.get('get_nft_index_by_owner_address', [{ type: 'slice', cell: beginCell().storeAddress(owner).endCell() }]);
-    return result.stack.readBigNumber();
+  async getItemAddressByOwnerAddress(provider: ContractProvider, owner: Address): Promise<Address> {
+    const result = await provider.get('get_item_address_by_owner_address', [{ type: 'slice', cell: beginCell().storeAddress(owner).endCell() }]);
+    return result.stack.readAddress();
   }
 
   async getItemPrice(provider: ContractProvider): Promise<bigint> {
     const result = await provider.get('get_item_price', []);
+    return result.stack.readBigNumber();
+  }
+
+  async getTest(provider: ContractProvider, data: Cell): Promise<bigint> {
+    const result = await provider.get('get_test', [{ type: 'cell', cell: data }]);
     return result.stack.readBigNumber();
   }
 }

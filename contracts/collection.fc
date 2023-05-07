@@ -6,26 +6,39 @@
 #include "imports/map.fc";
 
 global slice storage::authority_address;
+global slice storage::owner_address;
+global int storage::map_hash;
 global cell storage::content;
-global cell storage::map;
 global cell storage::item_code;
+global cell storage::map;
 
 () load_data() impure inline {
     var ds = get_data().begin_parse();
     storage::authority_address = ds~load_msg_addr();
+    storage::owner_address = ds~load_msg_addr();
+    storage::map_hash = ds~load_uint(256);
     storage::content = ds~load_ref();
-    storage::map = ds~load_ref();
     storage::item_code = ds~load_ref();
+    if (ds.slice_refs() > 0) {
+        storage::map = ds~load_ref();
+    } else {
+        storage::map = null();
+    }
     return ();
 }
 
 () save_data() impure inline {
-    set_data(begin_cell()
+    builder b = begin_cell()
             .store_slice(storage::authority_address)
+            .store_slice(storage::owner_address)
+            .store_uint(storage::map_hash, 256)
             .store_ref(storage::content)
-            .store_ref(storage::map)
-            .store_ref(storage::item_code)
-            .end_cell());
+            .store_ref(storage::item_code);
+    if (~ null?(storage::map)) {
+        b = b.store_ref(storage::map);
+    }
+
+    set_data(b.end_cell());
 }
 
 () recv_internal(cell in_msg_full, slice in_msg_body) impure {
@@ -43,12 +56,46 @@ global cell storage::item_code;
 
     load_data();
 
-    throw_unless(401, equal_slices(sender_address, storage::authority_address));
-
     if (op == op::deploy_version()) {
+        throw_unless(401, equal_slices(sender_address, storage::authority_address));
+
+        storage::map = new_dict();
+
+        save_data();
+        return ();
+    }
+    if (op == op::fill_version()) {
+        throw_unless(401, equal_slices(sender_address, storage::owner_address));
+
+        (int max_key, _, int not_empty) = storage::map.udict_get_max?(10);
+        max_key = not_empty ? max_key : -1;
+        cell countries = in_msg_body~load_ref();
+        (int country_key, slice country, int country_flag) = countries.udict_get_min?(10);
+        while (country_flag) {
+            max_key = max_key + 1;
+            storage::map~udict_set(10, max_key, country);
+            (country_key, country, country_flag) = countries.udict_get_next?(10, country_key);
+        }
+
+        save_data();
+        return ();
+    }
+    if (op == op::reset_version()) {
+        throw_unless(401, equal_slices(sender_address, storage::owner_address));
+
+        storage::map = new_dict();
+
+        save_data();
+        return ();
+    }
+    if (op == op::release_version()) {
+        throw_unless(401, equal_slices(sender_address, storage::owner_address));
+        throw_unless(400, storage::map_hash == cell_hash(storage::map));
+
         raw_reserve(min_tons_for_storage(), 0);
         send_message(flag::regular(), storage::authority_address, 0, op::release_version(), query_id, begin_cell().store_slice(my_address()), 128);
 
+        save_data();
         return ();
     }
     throw(0xffff);
@@ -70,4 +117,9 @@ slice get_nft_address_by_index(int index) method_id {
 cell get_nft_content(int index, cell individual_nft_content) method_id {
     load_data();
     return get_full_item_content(individual_nft_content, storage::map);
+}
+
+cell get_map() method_id {
+    load_data();
+    return storage::map;
 }

@@ -15,7 +15,10 @@ int op::revoke() asm "0x6f89f5e3 PUSHINT";
 int op::take_excess() asm "0xd136d3b3 PUSHINT";
 
 int op::deploy_version() asm "0x5974ad85 PUSHINT";
-int op::release_version() asm "0x8defa197 PUSHINT";
+int op::fill_version() asm "0x2e7034db PUSHINT";
+int op::reset_version() asm "0x75a132b5 PUSHINT";
+int op::release_version() asm "0x40b14775 PUSHINT";
+
 int op::deploy_item() asm "0x5c57d048 PUSHINT";
 int op::upgrade_item() asm "0x242cc4be PUSHINT";
 int op::set_item_price() asm "0x18e00496 PUSHINT";

@@ -7,12 +7,14 @@ export const ON_CHAIN_CONTENT_PREFIX = 0x00;
 export const SNAKE_PREFIX = 0x00;
 export const CHUNK_PREFIX = 0x01;
 
-const imageData = readFileSync('assets/circle.svg').toString('utf-8');
+const imageData = readFileSync('assets/logo.svg').toString('utf-8');
 
 export const data = {
-  name: 'Name',
-  description: 'Description',
+  name: 'T11N',
+  description: 'T11N is a service that allows you to mint a unique editable NFT displaying on a world map all countries you have visited. For mint or update your map, please open @t11n_bot Telegram bot.',
   image_data: imageData,
+  external_link: 'https://t.me/t11n_bot',
+  external_url: 'https://t.me/t11n_bot',
 };
 
 export const sha256 = (value: string) => {

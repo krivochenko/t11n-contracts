@@ -66,14 +66,16 @@ global cell storage::latest_version;
     if (op == op::deploy_version()) {
         throw_unless(401, equal_slices(storage::owner_address, sender_address));
 
-        cell collection_content = in_msg_body~load_ref();
-        cell map = in_msg_body~load_ref();
+        int map_hash = in_msg_body~load_uint(256);
+        int countries_count = in_msg_body~load_uint(10);
 
-        cell collection_state_init = get_collection_state_init(storage::collection_code, my_address(), collection_content, map, storage::item_code);
+        cell collection_content = in_msg_body~load_ref();
+
+        cell collection_state_init = get_collection_state_init(storage::collection_code, my_address(), storage::owner_address, collection_content, map_hash, storage::item_code);
         cell msg_body = begin_cell().store_uint(op::deploy_version(), 32).store_uint(query_id, 64).end_cell();
         slice collection_address = send_deploy_message(collection_state_init, 0, msg_body, 64);
 
-        storage::candidate_version = begin_cell().store_slice(collection_address).store_uint(get_dict_size(map, 10), 10).end_cell();
+        storage::candidate_version = begin_cell().store_slice(collection_address).store_uint(countries_count, 10).end_cell();
 
         save_data();
         return ();
@@ -157,6 +159,13 @@ int get_nft_index_by_owner_address(slice owner_address) method_id {
     return slice_hash(owner_address);
 }
 
+slice get_item_address_by_owner_address(slice owner_address) method_id {
+    load_data();
+    int item_index = slice_hash(owner_address);
+    cell item_state_init = get_item_state_init(storage::item_code, item_index, my_address());
+    return calculate_address(item_state_init);
+}
+
 cell get_latest_version() method_id {
     load_data();
     return storage::latest_version;
@@ -165,4 +174,17 @@ cell get_latest_version() method_id {
 int get_item_price() method_id {
     load_data();
     return storage::item_price;
+}
+
+int get_test(cell data) method_id {
+    slice s = data.begin_parse();
+    cell c = s~load_ref();
+
+    int s_h = s~load_uint(256);
+    int c_h = cell_hash(c);
+
+    ~dump(s_h);
+    ~dump(c_h);
+
+    return s_h == c_h;
 }
