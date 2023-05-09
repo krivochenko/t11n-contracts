@@ -1,5 +1,5 @@
-cell get_collection_state_init(cell code, slice authority_address, slice owner_address, cell content, int map_hash, cell item_code) {
-    cell data = begin_cell().store_slice(authority_address).store_slice(owner_address).store_uint(map_hash, 256).store_ref(content).store_ref(item_code).end_cell();
+cell get_collection_state_init(cell code, slice authority_address, cell content, cell map, cell item_code) {
+    cell data = begin_cell().store_slice(authority_address).store_ref(content).store_ref(map).store_ref(item_code).end_cell();
     return calculate_state_init(code, data);
 }
 

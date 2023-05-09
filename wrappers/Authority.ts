@@ -13,6 +13,7 @@ import { generateItemContent } from './Collection';
 
 export type AuthorityConfig = {
   ownerAddress: Address,
+  mapmakerAddress: Address,
   itemPrice: bigint,
   collectionCode: Cell,
   itemCode: Cell,
@@ -40,6 +41,7 @@ export type ItemContent = {
 export function authorityConfigToCell(config: AuthorityConfig): Cell {
   return beginCell()
     .storeAddress(config.ownerAddress)
+    .storeAddress(config.mapmakerAddress)
     .storeCoins(config.itemPrice)
     .storeRef(config.collectionCode)
     .storeRef(config.itemCode)
@@ -65,20 +67,6 @@ export class Authority implements Contract {
       value: toNano('0.5'),
       sendMode: SendMode.PAY_GAS_SEPARATELY,
       body: beginCell().endCell(),
-    });
-  }
-
-  async sendDeployVersion(provider: ContractProvider, via: Sender, metadata: Cell, mapHash: Buffer, countriesCount: number) {
-    await provider.internal(via, {
-      value: toNano('1.5'),
-      sendMode: SendMode.PAY_GAS_SEPARATELY,
-      body: beginCell()
-        .storeUint(0x5974ad85, 32)
-        .storeUint(0, 64)
-        .storeBuffer(mapHash)
-        .storeUint(countriesCount, 10)
-        .storeRef(metadata)
-        .endCell(),
     });
   }
 
@@ -151,11 +139,6 @@ export class Authority implements Contract {
 
   async getItemPrice(provider: ContractProvider): Promise<bigint> {
     const result = await provider.get('get_item_price', []);
-    return result.stack.readBigNumber();
-  }
-
-  async getTest(provider: ContractProvider, data: Cell): Promise<bigint> {
-    const result = await provider.get('get_test', [{ type: 'cell', cell: data }]);
     return result.stack.readBigNumber();
   }
 }

@@ -1,21 +1,10 @@
-import {
-  Address,
-  beginCell,
-  Cell,
-  Contract,
-  contractAddress,
-  ContractProvider,
-  Sender,
-  SendMode,
-  toNano
-} from 'ton-core';
+import { Address, beginCell, Cell, Contract, contractAddress, ContractProvider } from 'ton-core';
 import { ItemContent } from './Authority';
 
 export type CollectionConfig = {
   authorityAddress: Address,
-  ownerAddress: Address,
   collectionData: Cell,
-  mapHash: Buffer,
+  map: Cell,
   itemCode: Cell,
 };
 
@@ -36,9 +25,8 @@ export const generateItemContent = (content: ItemContent) => {
 export function collectionConfigToCell(config: CollectionConfig): Cell {
   return beginCell()
     .storeAddress(config.authorityAddress)
-    .storeAddress(config.ownerAddress)
-    .storeBuffer(config.mapHash)
     .storeRef(config.collectionData)
+    .storeRef(config.map)
     .storeRef(config.itemCode)
     .endCell();
 }
@@ -55,29 +43,6 @@ export class Collection implements Contract {
     const data = collectionConfigToCell(config);
     const init = { code, data };
     return new Collection(contractAddress(workchain, init), init);
-  }
-
-  async sendFillVersion(provider: ContractProvider, via: Sender, batch: Cell) {
-    await provider.internal(via, {
-      value: toNano('0.1'),
-      sendMode: SendMode.PAY_GAS_SEPARATELY,
-      body: beginCell()
-        .storeUint(0x2e7034db, 32)
-        .storeUint(0, 64)
-        .storeRef(batch)
-        .endCell(),
-    });
-  }
-
-  async sendReleaseVersion(provider: ContractProvider, via: Sender) {
-    await provider.internal(via, {
-      value: toNano('0.1'),
-      sendMode: SendMode.PAY_GAS_SEPARATELY,
-      body: beginCell()
-        .storeUint(0x40b14775, 32)
-        .storeUint(0, 64)
-        .endCell(),
-    });
   }
 
   async getCollectionData(provider: ContractProvider): Promise<[bigint, Cell, Address]> {

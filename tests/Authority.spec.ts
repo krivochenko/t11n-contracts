@@ -8,43 +8,49 @@ import { Authority } from '../wrappers/Authority';
 import { buildOnChainMetadata, data, parseMetadata } from '../helpers/metadata';
 import { readFileSync } from 'fs';
 import { mapToCell } from '../helpers/map';
+import { Mapmaker } from '../wrappers/Mapmaker';
 
 describe('Authority', () => {
   const collectionData = buildOnChainMetadata(data);
 
+  let mapmakerCode: Cell;
   let authorityCode: Cell;
   let collectionCode: Cell;
   let itemCode: Cell;
   let deployer: SandboxContract<TreasuryContract>;
 
   beforeAll(async () => {
+    mapmakerCode = await compile('Mapmaker');
     authorityCode = await compile('Authority');
     collectionCode = await compile('Collection');
     itemCode = await compile('Item');
   });
 
   let blockchain: Blockchain;
+  let mapmaker: SandboxContract<Mapmaker>;
   let authority: SandboxContract<Authority>;
 
   beforeEach(async () => {
     blockchain = await Blockchain.create();
     deployer = await blockchain.treasury('deployer');
 
+    mapmaker = blockchain.openContract(Mapmaker.createFromConfig({
+      ownerAddress: deployer.address,
+    }, mapmakerCode));
+
     authority = blockchain.openContract(Authority.createFromConfig({
+      mapmakerAddress: mapmaker.address,
       ownerAddress: deployer.address,
       itemPrice: toNano('1.1'),
       collectionCode,
       itemCode,
     }, authorityCode));
 
-    const deployResult = await authority.sendDeploy(deployer.getSender());
+    const mapmakerDeployResult = await mapmaker.sendDeploy(deployer.getSender());
+    expect(mapmakerDeployResult.transactions).toHaveTransaction({ from: deployer.address, to: mapmaker.address, deploy: true, success: true  });
 
-    expect(deployResult.transactions).toHaveTransaction({
-      from: deployer.address,
-      to: authority.address,
-      deploy: true,
-      success: true,
-    });
+    const authorityDeployResult = await authority.sendDeploy(deployer.getSender());
+    expect(authorityDeployResult.transactions).toHaveTransaction({ from: deployer.address, to: authority.address, deploy: true, success: true });
   });
 
   it('should return null latest version', async () => {
@@ -53,39 +59,40 @@ describe('Authority', () => {
   });
 
   it('should deploy version and return correct data about it', async () => {
-    const { all, batches, countriesCount } = mapToCell('tests/files/maps/test-1.svg', 2);
-    await authority.sendDeployVersion(deployer.getSender(), collectionData, all.hash(), countriesCount);
-
-    const authorityAddress = authority.address;
-    const collectionConfig = { authorityAddress, ownerAddress: deployer.address, collectionData, mapHash: all.hash(), itemCode };
-    const collection = blockchain.openContract(Collection.createFromConfig(collectionConfig, collectionCode));
-
+    const { map, batches } = mapToCell('tests/files/maps/test-1.svg', 2, 0);
     for (const batch of batches) {
-      await collection.sendFillVersion(deployer.getSender(), batch);
+      await mapmaker.sendFillMap(deployer.getSender(), batch);
     }
-    const map = await collection.getMap();
-    expect(map).toEqualCell(all);
+    let mapmakerMap = await mapmaker.getMap();
+    expect(mapmakerMap).toEqualCell(map);
 
-    await collection.sendReleaseVersion(deployer.getSender());
+    await mapmaker.sendDeployVersion(deployer.getSender(), authority.address, collectionData);
+    await mapmaker.sendResetMap(deployer.getSender());
+    mapmakerMap = await mapmaker.getMap();
+    expect(mapmakerMap).toBeNull();
+
+    const collectionConfig = { authorityAddress: authority.address, collectionData, map, itemCode };
+    const v1 = blockchain.openContract(Collection.createFromConfig(collectionConfig, collectionCode));
+
+    const v1Map = await v1.getMap();
+    expect(v1Map).toEqualCell(map);
 
     const latestVersion = await authority.getLatestVersion();
     expect(latestVersion).not.toBeNull();
-    expect(latestVersion!.address).toEqualAddress(collection.address)
+    expect(latestVersion!.address).toEqualAddress(v1.address)
     expect(latestVersion!.countriesCount).toBe(5);
   });
 
   it('should deploy item and return correct data', async () => {
-    const { all, batches, countriesCount } = mapToCell('tests/files/maps/test-1.svg', 2);
-    await authority.sendDeployVersion(deployer.getSender(), collectionData, all.hash(), countriesCount);
-
-    const authorityAddress = authority.address;
-    const collectionConfig = { authorityAddress, ownerAddress: deployer.address, collectionData, mapHash: all.hash(), itemCode };
-    const collection = blockchain.openContract(Collection.createFromConfig(collectionConfig, collectionCode));
-
+    const { map, batches } = mapToCell('tests/files/maps/test-1.svg', 2, 0);
     for (const batch of batches) {
-      await collection.sendFillVersion(deployer.getSender(), batch);
+      await mapmaker.sendFillMap(deployer.getSender(), batch);
     }
-    await collection.sendReleaseVersion(deployer.getSender());
+    await mapmaker.sendDeployVersion(deployer.getSender(), authority.address, collectionData);
+    await mapmaker.sendResetMap(deployer.getSender());
+
+    const collectionConfig = { authorityAddress: authority.address, collectionData, map, itemCode };
+    const collection = blockchain.openContract(Collection.createFromConfig(collectionConfig, collectionCode));
 
     const itemContent = {
       colorSchema: {
@@ -124,17 +131,15 @@ describe('Authority', () => {
   });
 
   it('should edit item', async () => {
-    const { all, batches, countriesCount } = mapToCell('tests/files/maps/test-1.svg', 2);
-    await authority.sendDeployVersion(deployer.getSender(), collectionData, all.hash(), countriesCount);
-
-    const authorityAddress = authority.address;
-    const collectionConfig = { authorityAddress, ownerAddress: deployer.address, collectionData, mapHash: all.hash(), itemCode };
-    const collection = blockchain.openContract(Collection.createFromConfig(collectionConfig, collectionCode));
-
+    const { map, batches } = mapToCell('tests/files/maps/test-1.svg', 2, 0);
     for (const batch of batches) {
-      await collection.sendFillVersion(deployer.getSender(), batch);
+      await mapmaker.sendFillMap(deployer.getSender(), batch);
     }
-    await collection.sendReleaseVersion(deployer.getSender());
+    await mapmaker.sendDeployVersion(deployer.getSender(), authority.address, collectionData);
+    await mapmaker.sendResetMap(deployer.getSender());
+
+    const collectionConfig = { authorityAddress: authority.address, collectionData, map, itemCode };
+    const collection = blockchain.openContract(Collection.createFromConfig(collectionConfig, collectionCode));
 
     const itemContent = {
       colorSchema: {
@@ -174,17 +179,12 @@ describe('Authority', () => {
   });
 
   it('should upgrade item', async () => {
-    const { all: v1All, batches: v1Batches, countriesCount: v1CountriesCount } = mapToCell('tests/files/maps/test-1.svg', 2);
-    await authority.sendDeployVersion(deployer.getSender(), collectionData, v1All.hash(), v1CountriesCount);
-
-    const authorityAddress = authority.address;
-    const v1Config = { authorityAddress, ownerAddress: deployer.address, collectionData, mapHash: v1All.hash(), itemCode };
-    const v1 = blockchain.openContract(Collection.createFromConfig(v1Config, collectionCode));
-
+    const { batches: v1Batches } = mapToCell('tests/files/maps/test-1.svg', 2, 0);
     for (const batch of v1Batches) {
-      await v1.sendFillVersion(deployer.getSender(), batch);
+      await mapmaker.sendFillMap(deployer.getSender(), batch);
     }
-    await v1.sendReleaseVersion(deployer.getSender());
+    await mapmaker.sendDeployVersion(deployer.getSender(), authority.address, collectionData);
+    await mapmaker.sendResetMap(deployer.getSender());
 
     const itemContent = {
       colorSchema: {
@@ -200,15 +200,21 @@ describe('Authority', () => {
     const itemAddress = await authority.getItemAddressByOwnerAddress(deployer.address);
     const item = blockchain.openContract(Item.createFromAddress(itemAddress));
 
-    const { all: v2All, batches: v2Batches, countriesCount: v2CountriesCount } = mapToCell('tests/files/maps/test-2.svg', 2);
-    const v2Config = { authorityAddress, ownerAddress: deployer.address, collectionData, mapHash: v2All.hash(), itemCode };
+    const { map: v2Map, batches: v2Batches } = mapToCell('tests/files/maps/test-2.svg', 2, 0);
+    for (const batch of v1Batches) {
+      await mapmaker.sendFillMap(deployer.getSender(), batch);
+    }
+    await mapmaker.sendDeployVersion(deployer.getSender(), authority.address, collectionData);
+    await mapmaker.sendResetMap(deployer.getSender());
+
+    const v2Config = { authorityAddress: authority.address, collectionData, map: v2Map, itemCode };
     const v2 = blockchain.openContract(Collection.createFromConfig(v2Config, collectionCode));
 
-    await authority.sendDeployVersion(deployer.getSender(), collectionData, v2All.hash(), v2CountriesCount);
     for (const batch of v2Batches) {
-      await v2.sendFillVersion(deployer.getSender(), batch);
+      await mapmaker.sendFillMap(deployer.getSender(), batch);
     }
-    await v2.sendReleaseVersion(deployer.getSender());
+    await mapmaker.sendDeployVersion(deployer.getSender(), authority.address, collectionData);
+    await mapmaker.sendResetMap(deployer.getSender());
 
     const latestVersion = await authority.getLatestVersion();
     expect(latestVersion!.address).toEqualAddress(v2.address);

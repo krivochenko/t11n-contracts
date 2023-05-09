@@ -3,7 +3,7 @@ import { readFileSync } from 'fs';
 import { beginCell, Cell, Dictionary } from 'ton-core';
 import { snake } from './metadata';
 
-export const mapToCell = (file: string, batchSize: number): { all: Cell, batches: Cell[], countriesCount: number } => {
+export const mapToCell = (file: string, batchSize: number, skip: number): { map: Cell, batches: Cell[] } => {
   const imageData = readFileSync(file).toString('utf-8');
   const root = parse(imageData);
   const svg = root.children;
@@ -24,7 +24,7 @@ export const mapToCell = (file: string, batchSize: number): { all: Cell, batches
     return result;
   }, {});
 
-  const countriesNames = Object.keys(countries);
+  const countriesNames = Object.keys(countries).slice(skip);
   const batchesCount = Math.ceil(countriesNames.length / batchSize);
 
   const batches: Cell[] = [];
@@ -52,8 +52,7 @@ export const mapToCell = (file: string, batchSize: number): { all: Cell, batches
   }
 
   return {
-    all: beginCell().storeDictDirect(all).endCell(),
+    map: beginCell().storeDictDirect(all).endCell(),
     batches,
-    countriesCount: countriesNames.length,
   };
 }

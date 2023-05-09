@@ -184,10 +184,12 @@ global cell storage::content;
 
             storage::content = in_msg_body~load_ref();
         }
+
+        save_data();
+
         raw_reserve(min_tons_for_storage(), 0);
         send_message(flag::regular(), storage::owner_address, 0, op::excesses(), query_id, null(), 128);
 
-        save_data();
         return ();
     }
 

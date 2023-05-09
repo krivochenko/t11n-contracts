@@ -21,5 +21,6 @@ export async function run(provider: NetworkProvider) {
     itemCode,
   }, authorityCode));
 
-  await authority.sendWithdraw(provider.sender());
+  await authority.sendDeploy(provider.sender());
+  await provider.waitForDeploy(authority.address, 30);
 }
