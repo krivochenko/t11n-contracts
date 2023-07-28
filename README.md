@@ -18,9 +18,9 @@ T11N is a service that allows you to mint a unique NFT displaying on a world map
 
 ## Screenshots
 
-<img src="https://krivochenko.github.io/t11n/1.jpg" alt="" style="height: 252px; width:141px;"/>
-<img src="https://krivochenko.github.io/t11n/2.jpg" alt="" style="height: 252px; width:141px;"/>
-<img src="https://krivochenko.github.io/t11n/3.jpg" alt="" style="height: 252px; width:141px;"/>
+<img src="https://krivochenko.github.io/t11n/1.jpg" alt="" style="height: 504px; width:282px;"/>
+<img src="https://krivochenko.github.io/t11n/2.jpg" alt="" style="height: 504px; width:282px;"/>
+<img src="https://krivochenko.github.io/t11n/3.jpg" alt="" style="height: 504px; width:282px;"/>
 
 ## Links
 
