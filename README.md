@@ -18,9 +18,9 @@ T11N is a service that allows you to mint a unique NFT displaying on a world map
 
 ## Screenshots
 
-<img src="https://api.ton.app/uploads/d528af9e_c7a4_4b82_8d61_43313aac8957_5687b266ef.jpg" alt="" style="height: 252px; width:141px;"/>
-<img src="https://api.ton.app/uploads/ae49c593_ad7d_4a56_99b8_0faf6a3497ec_6c94ecf4e8.jpg" alt="" style="height: 252px; width:141px;"/>
-<img src="https://api.ton.app/uploads/9057da51_d8da_4f50_b641_26d7b143fde4_26d842a328.jpg" alt="" style="height: 252px; width:141px;"/>
+<img src="https://www.upwork.com/att/download/portfolio/persons/uid/472809685915836416/profile/projects/files/fe6eeb0e-d747-4969-a8a7-f2ee44965dd6" alt="" style="height: 252px; width:141px;"/>
+<img src="https://www.upwork.com/att/download/portfolio/persons/uid/472809685915836416/profile/projects/files/738c4c58-34f5-4a2a-8374-dc9e0e8e0e0f" alt="" style="height: 252px; width:141px;"/>
+<img src="https://www.upwork.com/att/download/portfolio/persons/uid/472809685915836416/profile/projects/files/ccdeefb3-71d3-448d-b02a-e158b9a6ce10" alt="" style="height: 252px; width:141px;"/>
 
 ## Links
 
